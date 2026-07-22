@@ -133,11 +133,8 @@ export function createMarkdownComponents({
     hr: () => <hr className="my-8 border-foreground" />,
 
     table: ({ children }: { children?: React.ReactNode }) => (
-      <div
-        dir="auto"
-        className="my-6 overflow-x-auto rounded-xl border border-border shadow-xl"
-      >
-        <table className="min-w-full text-sm">{children}</table>
+      <div className="my-6 mx-auto w-fit max-w-full overflow-x-auto rounded-xl border border-border shadow-xl">
+        <table className="text-sm">{children}</table>
       </div>
     ),
 
@@ -147,21 +144,15 @@ export function createMarkdownComponents({
 
     th: ({
       children,
-      align,
+      style,
     }: {
       children?: React.ReactNode;
-      align?: string | null;
+      style?: React.CSSProperties;
     }) => {
-      const alignClass =
-        align === "center"
-          ? "text-center"
-          : align === "right"
-            ? "text-right"
-            : "text-left";
       return (
         <th
-          dir="auto"
-          className={`${alignClass} px-4 py-2 font-medium border-b border-border`}
+          style={style}
+          className="px-4 py-2 font-medium border-b border-border text-center"
         >
           {children}
         </th>
@@ -170,21 +161,15 @@ export function createMarkdownComponents({
 
     td: ({
       children,
-      align,
+      style,
     }: {
       children?: React.ReactNode;
-      align?: string | null;
+      style?: React.CSSProperties;
     }) => {
-      const alignClass =
-        align === "center"
-          ? "text-center"
-          : align === "right"
-            ? "text-right"
-            : "text-left";
       return (
         <td
-          dir="auto"
-          className={`${alignClass} px-4 py-2 border-b border-border bg-chat-input`}
+          style={style}
+          className="px-4 py-2 border-b border-border bg-chat-input text-center"
         >
           {children}
         </td>

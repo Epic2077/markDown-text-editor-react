@@ -28,6 +28,7 @@ import { createMarkdownComponents } from "../components/markDown";
 import type { CodeExecutionResult } from "../types/chat";
 import { executeCode } from "../lib/codeExecutor";
 import { useNotes } from "../hooks/useNotes";
+import { Star, Hash, X, Plus } from "lucide-react";
 import "@fontsource/vazirmatn/index.css";
 
 const AUTO_SAVE_DELAY = 2000; // 2 seconds
@@ -35,7 +36,8 @@ const AUTO_SAVE_DELAY = 2000; // 2 seconds
 export default function NoteEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { notes, createNote, updateNote } = useNotes();
+  const { notes, createNote, updateNote, togglePin, addTag, removeTag } =
+    useNotes();
 
   const [title, setTitle] = useState<string>("");
   const [tab, setTab] = useState<"editor" | "preview">("editor");
@@ -43,10 +45,14 @@ export default function NoteEditor() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
     "idle",
   );
+  const [tagInput, setTagInput] = useState("");
+  const [showTagInput, setShowTagInput] = useState(false);
 
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const noteIdRef = useRef<string | null>(id || null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const currentNote = notes.find((n) => n.id === (noteIdRef.current || id));
 
   // Load existing note if editing
   useEffect(() => {
@@ -57,7 +63,6 @@ export default function NoteEditor() {
         setContent(note.content);
         noteIdRef.current = note.id;
       } else {
-        // Note not found, redirect to home
         navigate("/");
       }
     }
@@ -77,7 +82,7 @@ export default function NoteEditor() {
           title: currentTitle || "Untitled",
         });
         // Update URL to reflect the new note ID
-        navigate(`/note/${newId}`, { replace: true });
+        navigate(`/edit/${newId}`, { replace: true });
       } else {
         updateNote(noteIdRef.current, {
           title: currentTitle || "Untitled",
@@ -161,6 +166,13 @@ export default function NoteEditor() {
     },
   });
 
+  // Adds bottom padding so the last lines appear near the middle of the viewport
+  const centerTextExtension = EditorView.theme({
+    ".cm-content, .cm-scroller": {
+      paddingBottom: "45vh !important",
+    },
+  });
+
   const remarkPlugins = [
     remarkGfm,
     remarkMath,
@@ -190,32 +202,122 @@ export default function NoteEditor() {
     [],
   );
 
+  const handleAddTag = () => {
+    const nid = noteIdRef.current;
+    if (tagInput.trim() && nid) {
+      addTag(nid, tagInput);
+      setTagInput("");
+      setShowTagInput(false);
+    }
+  };
+
   const saveStatusLabel = {
     idle: null,
-    saving: <span className="text-xs text-neutral-500">Saving...</span>,
-    saved: <span className="text-xs text-neutral-500">Saved</span>,
+    saving: (
+      <span className="text-xs text-neutral-500 font-medium animate-pulse">
+        Saving...
+      </span>
+    ),
+    saved: (
+      <span className="text-xs text-emerald-500/80 font-medium">Saved</span>
+    ),
   }[saveStatus];
 
   return (
     <div className="flex flex-col w-full h-screen bg-neutral-900 text-white">
       {/* Title bar */}
-      <div className="border-b border-neutral-700 bg-neutral-800 flex items-center pr-4">
-        <input
-          className="flex-1 px-6 py-4 text-xl font-semibold bg-transparent outline-none placeholder:text-neutral-500"
-          placeholder="Untitled Note"
-          value={title}
-          onChange={handleTitleChange}
-        />
-        <div className="flex items-center gap-3">
-          {saveStatusLabel}
-          <button
-            onClick={() => save(title, content)}
-            className="px-3 py-1.5 text-xs rounded bg-neutral-700 hover:bg-neutral-600 transition-colors"
-          >
-            Save
-          </button>
+      <div className="relative border-b border-neutral-800/60">
+        <div className="absolute inset-0 bg-gradient-to-b from-neutral-800/40 to-transparent pointer-events-none" />
+        <div className="relative flex items-center px-4 pr-5 gap-3">
+          <input
+            className="flex-1 px-3 py-4 text-lg font-semibold bg-transparent outline-none placeholder:text-neutral-600 text-neutral-100 tracking-tight"
+            placeholder="Untitled Note"
+            value={title}
+            onChange={handleTitleChange}
+          />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {noteIdRef.current && (
+              <button
+                onClick={() =>
+                  noteIdRef.current && togglePin(noteIdRef.current)
+                }
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  currentNote?.pinned
+                    ? "text-amber-400 hover:bg-amber-400/10"
+                    : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+                }`}
+                title={currentNote?.pinned ? "Unpin note" : "Pin note"}
+              >
+                <Star
+                  className={`w-4 h-4 ${currentNote?.pinned ? "fill-amber-400" : ""}`}
+                />
+              </button>
+            )}
+            <div className="h-5 w-px bg-neutral-800" />
+            {saveStatusLabel}
+            <button
+              onClick={() => save(title, content)}
+              className="px-3.5 py-1.5 text-xs font-medium rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/50 hover:border-neutral-600 transition-all duration-200 text-neutral-300 hover:text-white"
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Tags bar */}
+      {noteIdRef.current && (
+        <div className="px-5 py-2 border-b border-neutral-800/40 flex items-center gap-2 flex-wrap">
+          {(currentNote?.tags || []).map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400/90 border border-blue-500/20 group/tag"
+            >
+              <Hash className="w-3 h-3" />
+              {tag}
+              <button
+                onClick={() =>
+                  noteIdRef.current && removeTag(noteIdRef.current, tag)
+                }
+                className="ml-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          {showTagInput ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAddTag();
+              }}
+              className="flex items-center"
+            >
+              <input
+                autoFocus
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onBlur={() => {
+                  if (!tagInput.trim()) setShowTagInput(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setShowTagInput(false);
+                }}
+                placeholder="Tag name…"
+                className="text-xs bg-transparent border border-neutral-700/50 rounded-full px-2.5 py-1 outline-none text-neutral-300 placeholder:text-neutral-600 w-24 focus:border-blue-500/50"
+              />
+            </form>
+          ) : (
+            <button
+              onClick={() => setShowTagInput(true)}
+              className="inline-flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-400 transition-colors px-1.5 py-1"
+            >
+              <Plus className="w-3 h-3" />
+              Add tag
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Tabs + Toolbar row */}
       <Toolbar tab={tab} setTab={setTab} editorRef={editorRef} />
@@ -227,8 +329,9 @@ export default function NoteEditor() {
             ref={editorRef}
             value={content}
             height="100%"
+            maxWidth="100%"
             theme={oneDark}
-            extensions={[markdown(), transparentTheme]}
+            extensions={[markdown(), transparentTheme, centerTextExtension]}
             onChange={handleContentChange}
             placeholder="Start writing..."
             className="h-full text-base"
@@ -239,23 +342,7 @@ export default function NoteEditor() {
             }}
           />
         ) : (
-          <div
-            className="h-full overflow-auto bg-neutral-900 p-8 auto-dir-markdown"
-            style={{ fontFamily: '"Vazirmatn", sans-serif' }}
-          >
-            <style>{`
-              .auto-dir-markdown p, 
-              .auto-dir-markdown h1, 
-              .auto-dir-markdown h2, 
-              .auto-dir-markdown h3, 
-              .auto-dir-markdown h4, 
-              .auto-dir-markdown h5, 
-              .auto-dir-markdown h6, 
-              .auto-dir-markdown li {
-                unicode-bidi: plaintext;
-                text-align: start;
-              }
-            `}</style>
+          <div className="h-full overflow-auto custom-scrollbar bg-neutral-900 p-8 auto-dir-markdown">
             <div className="max-w-4xl mx-auto">
               <ReactMarkdown
                 remarkPlugins={remarkPlugins}

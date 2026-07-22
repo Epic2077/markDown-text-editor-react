@@ -1,6 +1,11 @@
 // components/Toolbar.tsx
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { useCallback, type Dispatch, type SetStateAction } from "react";
+import {
+  useCallback,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   Bold,
   Italic,
@@ -16,7 +21,9 @@ import {
   Link,
   Image,
   CheckSquare,
-} from "lucide-react"; // Highly recommend using lucide-react icons
+  Table,
+  Palette,
+} from "lucide-react";
 
 interface ToolbarButtonProps {
   onClick: () => void;
@@ -35,8 +42,10 @@ export const ToolbarButton = ({
     type="button"
     onClick={onClick}
     title={title}
-    className={`p-1.5 rounded hover:bg-neutral-700 transition-colors ${
-      isActive ? "bg-neutral-700 text-white" : "text-neutral-300"
+    className={`p-1.5 rounded-md transition-all duration-150 ${
+      isActive
+        ? "bg-neutral-700 text-white"
+        : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700/60"
     }`}
   >
     {children}
@@ -49,7 +58,19 @@ interface ToolBarProps {
   editorRef: React.RefObject<ReactCodeMirrorRef | null>;
 }
 
+// Pre-defined colors for the dropdown
+const TEXT_COLORS = [
+  { name: "Red", value: "#ef4444" },
+  { name: "Blue", value: "#3b82f6" },
+  { name: "Green", value: "#22c55e" },
+  { name: "Yellow", value: "#eab308" },
+  { name: "Orange", value: "#f97316" },
+  { name: "Purple", value: "#a855f7" },
+];
+
 export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
   const insertMarkdown = useCallback(
     (syntax: string, isPrefix = false) => {
       const view = editorRef.current?.view;
@@ -69,6 +90,31 @@ export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
         insertion = `${syntax}${selected}${syntax}`;
         newCursorPos = selected ? to + syntax.length * 2 : from + syntax.length;
       }
+
+      dispatch(
+        state.update({
+          changes: { from, to, insert: insertion },
+          selection: { anchor: newCursorPos },
+        }),
+      );
+      view.focus();
+    },
+    [editorRef],
+  );
+
+  const wrapWithTags = useCallback(
+    (prefix: string, suffix: string) => {
+      const view = editorRef.current?.view;
+      if (!view) return;
+
+      const { state, dispatch } = view;
+      const { from, to } = state.selection.main;
+      const selected = state.sliceDoc(from, to);
+
+      const insertion = `${prefix}${selected}${suffix}`;
+      const newCursorPos = selected
+        ? to + prefix.length + suffix.length
+        : from + prefix.length;
 
       dispatch(
         state.update({
@@ -101,24 +147,24 @@ export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
   );
 
   return (
-    <div className="flex flex-wrap items-center border-b border-neutral-700 bg-neutral-800">
+    <div className="flex flex-wrap items-center border-b border-neutral-800/60 bg-neutral-900/80">
       <div className="flex">
         <button
           onClick={() => setTab("editor")}
-          className={`px-6 py-3 text-sm font-medium transition-colors ${
+          className={`px-5 py-3 text-sm font-medium transition-all duration-200 ${
             tab === "editor"
               ? "text-white border-b-2 border-blue-500"
-              : "text-neutral-400 hover:text-white"
+              : "text-neutral-500 hover:text-neutral-300"
           }`}
         >
           Editor
         </button>
         <button
           onClick={() => setTab("preview")}
-          className={`px-6 py-3 text-sm font-medium transition-colors ${
+          className={`px-5 py-3 text-sm font-medium transition-all duration-200 ${
             tab === "preview"
               ? "text-white border-b-2 border-blue-500"
-              : "text-neutral-400 hover:text-white"
+              : "text-neutral-500 hover:text-neutral-300"
           }`}
         >
           Preview
@@ -126,7 +172,7 @@ export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
       </div>
 
       {tab === "editor" && (
-        <div className="flex items-center gap-1 px-4">
+        <div className="flex items-center gap-1 px-4 py-1 flex-wrap">
           <div className="w-px h-5 bg-neutral-700 mx-1" />
 
           {/* Text Formatting */}
@@ -142,6 +188,47 @@ export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
           >
             <Strikethrough size={16} />
           </ToolbarButton>
+
+          {/* Color Picker Dropdown Container */}
+          <div className="relative flex items-center">
+            <ToolbarButton
+              onClick={() => setShowColorPicker(!showColorPicker)}
+              title="Text Color"
+              isActive={showColorPicker}
+            >
+              <Palette size={16} />
+            </ToolbarButton>
+
+            {showColorPicker && (
+              <>
+                {/* Invisible backdrop to close dropdown when clicking outside */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowColorPicker(false)}
+                />
+
+                {/* Dropdown Menu */}
+                <div className="absolute top-full mt-1 left-0 bg-neutral-800 border border-neutral-600 rounded shadow-xl p-2 flex gap-1.5 z-50">
+                  {TEXT_COLORS.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      title={color.name}
+                      onClick={() => {
+                        wrapWithTags(
+                          `<span style="color: ${color.value};">`,
+                          "</span>",
+                        );
+                        setShowColorPicker(false);
+                      }}
+                      className="w-5 h-5 rounded-sm border border-neutral-700 hover:scale-110 transition-transform"
+                      style={{ backgroundColor: color.value }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           <div className="w-px h-5 bg-neutral-700 mx-1" />
 
@@ -195,7 +282,7 @@ export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
 
           <div className="w-px h-5 bg-neutral-700 mx-1" />
 
-          {/* Code, Links, Images */}
+          {/* Code, Links, Images, Tables */}
           <ToolbarButton
             onClick={() => insertMarkdown("`")}
             title="Inline Code"
@@ -205,7 +292,7 @@ export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
           <ToolbarButton
             onClick={() =>
               insertTemplate(
-                "\n<!--- change bash to the language you want to use --> \n ```bash \n\n```\n",
+                "\n<!--- change bash to the language you want to use --> \n```bash\n\n```\n",
                 5,
               )
             }
@@ -221,6 +308,17 @@ export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
             title="Image"
           >
             <Image size={16} />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() =>
+              insertTemplate(
+                "\n| Header 1 | Header 2 | Header 3 |\n| :--- | :---: | ---: |\n| Text | Text | Text |\n",
+                0,
+              )
+            }
+            title="Insert Table"
+          >
+            <Table size={16} />
           </ToolbarButton>
         </div>
       )}

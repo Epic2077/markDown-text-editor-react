@@ -15,15 +15,15 @@
 
 ## Features to add
 
-- [ ] **Full-text search** — Cmd/Ctrl+K palette across titles + content.
-- [ ] **Tags / folders** — add `tags: string[]` to `note.ts`, filter UI in sidebar.
-- [ ] **Favorites / pinned notes** — star icon on NoteCard, pinned section in sidebar.
-- [ ] **Recently viewed** — track last-opened, show in sidebar.
-- [ ] **Backlinks & `[[wiki-links]]`** — parse `[[Title]]` in markdown, show backlinks panel.
-- [ ] **Export** — single note → `.md` / `.html` / `.pdf`; bulk JSON export/import for backup.
-- [ ] **Keyboard shortcuts** — Cmd+K (search), Cmd+N (new), Cmd+B/I/K formatting, `?` to show cheatsheet.
+- [*] **Full-text search** — Cmd/Ctrl+K palette across titles + content.
+- [*] **Tags / folders** — add `tags: string[]` to `note.ts`, filter UI in sidebar.
+- [*] **Favorites / pinned notes** — star icon on NoteCard, pinned section in sidebar and home page.
+- [*] **Recently viewed** — track last-opened, show in sidebar.
+- [*] **Backlinks & `[[wiki-links]]`** — parse `[[Title]]` in markdown, show backlinks panel.
+- [*] **Export** — single note → `.md` / `.html` / `.pdf`; bulk JSON export/import for backup.
+- [*] **Keyboard shortcuts** — Cmd+K (search), Cmd+N (new), Cmd+B/I/K formatting, `?` to show cheatsheet.
 - [ ] **Revision history** — snapshot on save so the 2s auto-save can't silently destroy work.
-- [ ] **Templates / snippet library** — starter templates for daily notes, meeting notes, etc.
+- [*] **Templates / snippet library** — starter templates for daily notes, meeting notes, etc.
 - [ ] **Drag-to-reorder** notes in sidebar.
 
 ## Code quality

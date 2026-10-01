@@ -7,6 +7,15 @@ import Home from "./pages/Home";
 import NewNote from "./pages/NewNote";
 import Note from "./pages/Note";
 import NoteEditor from "./pages/EditNote";
+import Auth from "./pages/Auth";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { AuthProvider } from "./context/AuthContext";
+
+declare global {
+  interface Window {
+    MonacoEnvironment: { getWorkerUrl: () => string };
+  }
+}
 
 window.MonacoEnvironment = {
   getWorkerUrl: () =>
@@ -24,15 +33,21 @@ window.MonacoEnvironment = {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
-          <Route path="new" element={<NewNote />} />
-          <Route path="note/:id" element={<Note />} />
-          <Route path="edit/:id" element={<NoteEditor />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Auth mode="login" />} />
+          <Route path="/signup" element={<Auth mode="signup" />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<MainLayout />}>
+              <Route index element={<Home />} />
+              <Route path="new" element={<NewNote />} />
+              <Route path="note/:id" element={<Note />} />
+              <Route path="edit/:id" element={<NoteEditor />} />
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   </StrictMode>,
 );

@@ -17,6 +17,7 @@ import {
   X,
   LayoutTemplate,
   GripVertical,
+  LogOut,
 } from "lucide-react";
 import {
   Tooltip,
@@ -29,17 +30,26 @@ import { KeyboardShortcutsModal } from "../components/KeyboardShortcutsModal";
 import { ExportMenu } from "../components/ExportMenu";
 import { TemplatePickerModal } from "../components/TemplatePickerModal";
 import type { Note } from "../types/note";
+import { useAuth } from "../hooks/useAuth";
 
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, signOut } = useAuth();
   const [open, setOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const { notes, deleteNote, togglePin, allTags, recentlyViewed, reorderNotes } =
-    useNotes();
+  const {
+    notes,
+    deleteNote,
+    togglePin,
+    allTags,
+    recentlyViewed,
+    reorderNotes,
+    importNotes,
+  } = useNotes();
 
   // Drag-to-reorder state
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -121,27 +131,23 @@ export default function MainLayout() {
   );
 
   // Handle JSON import
-  const handleImport = useCallback((imported: Note[]) => {
-    const stored = localStorage.getItem("knowledge-base-notes");
-    const existing: Note[] = stored ? JSON.parse(stored) : [];
-    const merged = [...imported, ...existing];
-    localStorage.setItem("knowledge-base-notes", JSON.stringify(merged));
-    window.dispatchEvent(new Event("notes-updated"));
-  }, []);
+  const handleImport = useCallback(
+    (imported: Note[]) => {
+      importNotes(imported);
+    },
+    [importNotes],
+  );
 
   // Drag handlers
-  const handleDragStart = useCallback(
-    (e: React.DragEvent, noteId: string) => {
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", noteId);
-      setDraggedId(noteId);
-      // Make drag image slightly transparent
-      if (e.currentTarget instanceof HTMLElement) {
-        e.currentTarget.style.opacity = "0.5";
-      }
-    },
-    [],
-  );
+  const handleDragStart = useCallback((e: React.DragEvent, noteId: string) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", noteId);
+    setDraggedId(noteId);
+    // Make drag image slightly transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "0.5";
+    }
+  }, []);
 
   const handleDragEnd = useCallback((e: React.DragEvent) => {
     if (e.currentTarget instanceof HTMLElement) {
@@ -262,89 +268,89 @@ export default function MainLayout() {
             : "hover:bg-neutral-800/50 border border-transparent"
         }`}
       >
-      <Link to={`/note/${note.id}`} className="block p-2.5 pr-9">
-        <div className="flex items-start gap-2">
-          <GripVertical className="w-3.5 h-3.5 mt-1 flex-shrink-0 text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
-          {note.pinned ? (
-            <Star className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400/80 fill-amber-400/80" />
-          ) : (
-            <FileText
-              className={`w-4 h-4 mt-0.5 flex-shrink-0 transition-colors ${
-                isActive(note.id) ? "text-blue-400" : "text-neutral-600"
-              }`}
-            />
-          )}
-          <div className="flex-1 min-w-0">
-            <h3
-              className={`text-sm font-medium truncate ${
-                isActive(note.id) ? "text-white" : "text-neutral-300"
-              }`}
-            >
-              {note.title || "Untitled"}
-            </h3>
-            <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-[11px] text-neutral-600">
-                {formatDate(note.updatedAt)}
-              </p>
-              {note.tags.length > 0 && (
-                <div className="flex items-center gap-1">
-                  {note.tags.slice(0, 2).map((t) => (
-                    <span
-                      key={t}
-                      className="text-[9px] px-1 py-px rounded bg-neutral-800 text-neutral-500"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
+        <Link to={`/note/${note.id}`} className="block p-2.5 pr-9">
+          <div className="flex items-start gap-2">
+            <GripVertical className="w-3.5 h-3.5 mt-1 flex-shrink-0 text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
+            {note.pinned ? (
+              <Star className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400/80 fill-amber-400/80" />
+            ) : (
+              <FileText
+                className={`w-4 h-4 mt-0.5 flex-shrink-0 transition-colors ${
+                  isActive(note.id) ? "text-blue-400" : "text-neutral-600"
+                }`}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <h3
+                className={`text-sm font-medium truncate ${
+                  isActive(note.id) ? "text-white" : "text-neutral-300"
+                }`}
+              >
+                {note.title || "Untitled"}
+              </h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-[11px] text-neutral-600">
+                  {formatDate(note.updatedAt)}
+                </p>
+                {note.tags.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {note.tags.slice(0, 2).map((t) => (
+                      <span
+                        key={t}
+                        className="text-[9px] px-1 py-px rounded bg-neutral-800 text-neutral-500"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+        </Link>
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-150">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    togglePin(note.id);
+                  }}
+                  className="p-1 rounded-md hover:bg-neutral-700/60 transition-colors"
+                >
+                  <Star
+                    className={`w-3 h-3 ${
+                      note.pinned
+                        ? "text-amber-400 fill-amber-400"
+                        : "text-neutral-500"
+                    }`}
+                  />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {note.pinned ? "Unpin" : "Pin"} note
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    deleteNote(note.id);
+                  }}
+                  className="p-1 rounded-md hover:bg-red-500/10 transition-colors"
+                >
+                  <Trash2Icon className="w-3 h-3 text-red-400/80" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Delete note</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
-      </Link>
-      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-150">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  togglePin(note.id);
-                }}
-                className="p-1 rounded-md hover:bg-neutral-700/60 transition-colors"
-              >
-                <Star
-                  className={`w-3 h-3 ${
-                    note.pinned
-                      ? "text-amber-400 fill-amber-400"
-                      : "text-neutral-500"
-                  }`}
-                />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {note.pinned ? "Unpin" : "Pin"} note
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  deleteNote(note.id);
-                }}
-                className="p-1 rounded-md hover:bg-red-500/10 transition-colors"
-              >
-                <Trash2Icon className="w-3 h-3 text-red-400/80" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>Delete note</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
-    </div>
     );
   };
 
@@ -614,19 +620,36 @@ export default function MainLayout() {
         {open && (
           <div className="border-t border-neutral-800/60 p-2 flex items-center justify-between">
             <ExportMenu notes={notes} onImport={handleImport} />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setShortcutsOpen(true)}
-                    className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-500 hover:text-neutral-300 transition-all duration-150"
-                  >
-                    <Keyboard className="w-4 h-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex items-center gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setShortcutsOpen(true)}
+                      className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-500 hover:text-neutral-300 transition-all duration-150"
+                    >
+                      <Keyboard className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Keyboard shortcuts (?)</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => void signOut()}
+                      className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-500 hover:text-neutral-300 transition-all duration-150"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Sign out {user?.email ? `(${user.email})` : ""}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
         )}
       </aside>

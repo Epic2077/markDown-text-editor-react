@@ -17,57 +17,32 @@ If you are developing a production application, we recommend updating the config
 
 ```js
 export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
+  # Knowledge Base
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+  This Vite React knowledge base uses Supabase Auth and Postgres. Notes are scoped to the signed-in user with Row Level Security; application data is no longer stored in `localStorage`.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
+  ## Local setup
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+  1. Create a project at [supabase.com](https://supabase.com/), then open **SQL Editor**.
+  2. Run [`supabase/migrations/20261001000000_create_notes.sql`](supabase/migrations/20261001000000_create_notes.sql).
+  3. In **Authentication > Providers**, keep Email enabled. Decide whether email confirmation is required.
+  4. In **Authentication > URL Configuration**, set the Site URL to `http://localhost:5173` and add `http://localhost:5173` to Redirect URLs. Add the eventual Vercel URL there too.
+  5. Copy [`.env.example`](.env.example) to `.env.local` and fill in the project URL and publishable key from **Project Settings > API**. Never put a secret/service-role key in Vite env vars.
+  6. Run `npm run dev`.
 
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
+  The signup flow sends a confirmation email when email confirmation is enabled. The hosted default email service is rate-limited, so configure custom SMTP in Supabase before production use.
 
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs["recommended-typescript"],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+  ## Vercel deployment
+
+  1. Push this repository to GitHub and import it into Vercel.
+  2. Use framework **Vite**, build command `npm run build`, and output directory `dist`.
+  3. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in Vercel Project Settings > Environment Variables for Preview and Production.
+  4. Deploy, then add the production Vercel URL to Supabase Auth **Site URL** and **Redirect URLs**.
+
+  [`vercel.json`](vercel.json) keeps direct visits to `/login`, `/signup`, and note routes working with the client-side router.
+
+  ## Data and security
+
+  The migration enables RLS, revokes `anon` access, and grants signed-in users CRUD access only to rows whose `user_id` matches `auth.uid()`. Keep the publishable key public; the service-role/secret key must stay server-side and is not needed by this client-only app.
+
 ```

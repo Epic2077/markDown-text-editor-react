@@ -1,8 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Note } from "../types/note";
+import { useAuth } from "./useAuth";
+import { isSupabaseConfigured, supabase } from "../lib/supabase";
 
-const STORAGE_KEY = "knowledge-base-notes";
-const ORDER_KEY = "knowledge-base-note-order";
+const NOTES_UPDATED_EVENT = "notes-updated";
+
+interface NoteRow {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  pinned: boolean;
+  created_at: number;
+  updated_at: number;
+  last_viewed_at: number | null;
+  sort_order: number;
+}
 
 // Migrate old notes that lack new fields
 function migrateNote(note: Note): Note {
@@ -14,86 +28,174 @@ function migrateNote(note: Note): Note {
   };
 }
 
+function fromRow(row: NoteRow): Note {
+  return migrateNote({
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    tags: row.tags ?? [],
+    pinned: row.pinned,
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+    lastViewedAt:
+      row.last_viewed_at == null ? undefined : Number(row.last_viewed_at),
+  });
+}
+
+function toRow(note: Note, userId: string, sortOrder: number) {
+  return {
+    id: note.id,
+    user_id: userId,
+    title: note.title,
+    content: note.content,
+    tags: note.tags,
+    pinned: note.pinned,
+    created_at: note.createdAt,
+    updated_at: note.updatedAt,
+    last_viewed_at: note.lastViewedAt ?? null,
+    sort_order: sortOrder,
+  };
+}
+
+function toDatabaseUpdates(updates: Partial<Note>, updatedAt: number) {
+  return {
+    ...(updates.title === undefined ? {} : { title: updates.title }),
+    ...(updates.content === undefined ? {} : { content: updates.content }),
+    ...(updates.tags === undefined ? {} : { tags: updates.tags }),
+    ...(updates.pinned === undefined ? {} : { pinned: updates.pinned }),
+    ...(updates.createdAt === undefined
+      ? {}
+      : { created_at: updates.createdAt }),
+    ...(updates.lastViewedAt === undefined
+      ? {}
+      : { last_viewed_at: updates.lastViewedAt }),
+    updated_at: updatedAt,
+  };
+}
+
+function notifyNotesChanged() {
+  window.dispatchEvent(new Event(NOTES_UPDATED_EVENT));
+}
+
 export function useNotes() {
-  const [notes, setNotes] = useState<Note[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as Note[]).map(migrateNote) : [];
-  });
+  const { user } = useAuth();
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [noteOrder, setNoteOrder] = useState<string[]>([]);
+  const pendingCreates = useRef(new Map<string, Promise<void>>());
 
-  const [noteOrder, setNoteOrder] = useState<string[]>(() => {
-    const stored = localStorage.getItem(ORDER_KEY);
-    return stored ? JSON.parse(stored) : [];
-  });
+  const loadNotes = useCallback(async () => {
+    if (!user || !isSupabaseConfigured) {
+      setNotes([]);
+      setNoteOrder([]);
+      return;
+    }
 
-  // 1. Write to localStorage and notify other components
+    const { data, error } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("sort_order", { ascending: false });
+    if (error) {
+      console.error("Unable to load notes", error);
+      return;
+    }
+
+    const rows = (data ?? []) as NoteRow[];
+    setNotes(rows.map(fromRow));
+    setNoteOrder(rows.map((row) => row.id));
+  }, [user]);
+
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-    window.dispatchEvent(new Event("notes-updated"));
-  }, [notes]);
-
-  useEffect(() => {
-    localStorage.setItem(ORDER_KEY, JSON.stringify(noteOrder));
-  }, [noteOrder]);
-
-  // 2. Listen for changes from other components (or other tabs)
-  useEffect(() => {
-    const syncNotes = () => {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setNotes((prevNotes) => {
-          if (JSON.stringify(prevNotes) === stored) return prevNotes;
-          return (JSON.parse(stored) as Note[]).map(migrateNote);
-        });
-      }
-    };
-
-    window.addEventListener("notes-updated", syncNotes);
-    window.addEventListener("storage", syncNotes);
-
+    const loadTask = window.setTimeout(() => void loadNotes(), 0);
+    const syncNotes = () => void loadNotes();
+    window.addEventListener(NOTES_UPDATED_EVENT, syncNotes);
     return () => {
-      window.removeEventListener("notes-updated", syncNotes);
-      window.removeEventListener("storage", syncNotes);
+      window.clearTimeout(loadTask);
+      window.removeEventListener(NOTES_UPDATED_EVENT, syncNotes);
     };
-  }, []);
+  }, [loadNotes]);
 
-  const createNote = useCallback((title: string) => {
-    const newNote: Note = {
-      id: crypto.randomUUID(),
-      title: title,
-      content: "",
-      tags: [],
-      pinned: false,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
+  const createNote = useCallback(
+    (title: string) => {
+      const newNote: Note = {
+        id: crypto.randomUUID(),
+        title: title,
+        content: "",
+        tags: [],
+        pinned: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
 
-    setNotes((prev) => [newNote, ...prev]);
-    setNoteOrder((prev) => [newNote.id, ...prev]);
-    return newNote.id;
-  }, []);
+      setNotes((prev) => [newNote, ...prev]);
+      setNoteOrder((prev) => [newNote.id, ...prev]);
+      if (user && isSupabaseConfigured) {
+        const insertPromise = (async () => {
+          const { error } = await supabase
+            .from("notes")
+            .insert(toRow(newNote, user.id, Date.now()));
+          if (error) console.error("Unable to create note", error);
+          notifyNotesChanged();
+        })();
+        pendingCreates.current.set(newNote.id, insertPromise);
+        void insertPromise.finally(() =>
+          pendingCreates.current.delete(newNote.id),
+        );
+      }
+      return newNote.id;
+    },
+    [user],
+  );
 
-  const updateNote = useCallback((id: string, updates: Partial<Note>) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id ? { ...note, ...updates, updatedAt: Date.now() } : note,
-      ),
-    );
-  }, []);
+  const updateNote = useCallback(
+    (id: string, updates: Partial<Note>) => {
+      const updatedAt = Date.now();
+      setNotes((prev) =>
+        prev.map((note) =>
+          note.id === id ? { ...note, ...updates, updatedAt } : note,
+        ),
+      );
+      if (user && isSupabaseConfigured) {
+        void (async () => {
+          await pendingCreates.current.get(id);
+          const { error } = await supabase
+            .from("notes")
+            .update(toDatabaseUpdates(updates, updatedAt))
+            .eq("id", id)
+            .eq("user_id", user.id);
+          if (error) console.error("Unable to update note", error);
+          notifyNotesChanged();
+        })();
+      }
+    },
+    [user],
+  );
 
-  const deleteNote = useCallback((id: string) => {
-    setNotes((prev) => prev.filter((note) => note.id !== id));
-    setNoteOrder((prev) => prev.filter((nid) => nid !== id));
-  }, []);
+  const deleteNote = useCallback(
+    (id: string) => {
+      setNotes((prev) => prev.filter((note) => note.id !== id));
+      setNoteOrder((prev) => prev.filter((nid) => nid !== id));
+      if (user && isSupabaseConfigured) {
+        void supabase
+          .from("notes")
+          .delete()
+          .eq("id", id)
+          .eq("user_id", user.id)
+          .then(({ error }) => {
+            if (error) console.error("Unable to delete note", error);
+          });
+      }
+    },
+    [user],
+  );
 
-  const togglePin = useCallback((id: string) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id
-          ? { ...note, pinned: !note.pinned, updatedAt: Date.now() }
-          : note,
-      ),
-    );
-  }, []);
+  const togglePin = useCallback(
+    (id: string) => {
+      const note = notes.find((item) => item.id === id);
+      if (note) updateNote(id, { pinned: !note.pinned });
+    },
+    [notes, updateNote],
+  );
 
   const addTag = useCallback((id: string, tag: string) => {
     const normalized = tag.trim().toLowerCase();
@@ -121,13 +223,12 @@ export function useNotes() {
     );
   }, []);
 
-  const markViewed = useCallback((id: string) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id ? { ...note, lastViewedAt: Date.now() } : note,
-      ),
-    );
-  }, []);
+  const markViewed = useCallback(
+    (id: string) => {
+      updateNote(id, { lastViewedAt: Date.now() });
+    },
+    [updateNote],
+  );
 
   const sortedNotes = useMemo(() => {
     const orderMap = new Map(noteOrder.map((id, i) => [id, i]));
@@ -172,9 +273,52 @@ export function useNotes() {
   );
 
   // Reorder notes by setting the full ordered ID list
-  const reorderNotes = useCallback((orderedIds: string[]) => {
-    setNoteOrder(orderedIds);
-  }, []);
+  const reorderNotes = useCallback(
+    (orderedIds: string[]) => {
+      setNoteOrder(orderedIds);
+      if (user && isSupabaseConfigured) {
+        void Promise.all(
+          orderedIds.map((id, index) =>
+            supabase
+              .from("notes")
+              .update({ sort_order: orderedIds.length - index })
+              .eq("id", id)
+              .eq("user_id", user.id),
+          ),
+        ).then(() => notifyNotesChanged());
+      }
+    },
+    [user],
+  );
+
+  const importNotes = useCallback(
+    (imported: Note[]) => {
+      if (!user || !isSupabaseConfigured || imported.length === 0) return;
+      const notesToImport = imported.map((note) => ({
+        ...migrateNote(note),
+        id: crypto.randomUUID(),
+        createdAt: note.createdAt || Date.now(),
+        updatedAt: note.updatedAt || Date.now(),
+      }));
+      setNotes((prev) => [...notesToImport, ...prev]);
+      setNoteOrder((prev) => [
+        ...notesToImport.map((note) => note.id),
+        ...prev,
+      ]);
+      void supabase
+        .from("notes")
+        .insert(
+          notesToImport.map((note, index) =>
+            toRow(note, user.id, Date.now() + imported.length - index),
+          ),
+        )
+        .then(({ error }) => {
+          if (error) console.error("Unable to import notes", error);
+          notifyNotesChanged();
+        });
+    },
+    [user],
+  );
 
   return {
     notes: sortedNotes,
@@ -189,5 +333,6 @@ export function useNotes() {
     markViewed,
     getBacklinks,
     reorderNotes,
+    importNotes,
   };
 }

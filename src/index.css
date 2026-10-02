@@ -274,3 +274,62 @@ code {
   max-width: 100%;
   border-radius: 6px;
 }
+
+.agent-markdown p {
+  margin: 0 0 0.5rem;
+}
+.agent-markdown p:last-child {
+  margin-bottom: 0;
+}
+.agent-markdown strong {
+  color: #f5f5f5;
+  font-weight: 700;
+}
+.agent-markdown em {
+  color: #d4d4d8;
+}
+.agent-markdown h1,
+.agent-markdown h2,
+.agent-markdown h3 {
+  color: #f5f5f5;
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin: 0.65rem 0 0.35rem;
+}
+.agent-markdown ul,
+.agent-markdown ol {
+  margin: 0.35rem 0 0.6rem;
+  padding-left: 1.25rem;
+}
+.agent-markdown ul {
+  list-style: disc;
+}
+.agent-markdown ol {
+  list-style: decimal;
+}
+.agent-markdown li {
+  margin: 0.15rem 0;
+}
+.agent-markdown code {
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.1rem 0.3rem;
+  color: #a5f3fc;
+  font-size: 0.75rem;
+}
+.agent-markdown pre {
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.6rem;
+}
+.agent-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+.agent-markdown a {
+  color: #67e8f9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

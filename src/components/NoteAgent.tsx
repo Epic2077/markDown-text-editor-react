@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Bot, Send, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { supabase } from "../lib/supabase";
 
 const MAX_CONTEXT_CHARS = 24_000;
@@ -182,7 +184,15 @@ export default function NoteAgent({
                 }
               >
                 {message.role === "assistant" && <AgentAvatar small />}
-                {message.content}
+                {message.role === "assistant" ? (
+                  <div className="agent-markdown">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  message.content
+                )}
                 {message.role === "assistant" && onInsert && (
                   <button
                     onClick={() => onInsert(message.content)}

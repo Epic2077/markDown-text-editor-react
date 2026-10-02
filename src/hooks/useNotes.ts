@@ -16,7 +16,10 @@ interface NoteRow {
   updated_at: number;
   last_viewed_at: number | null;
   sort_order: number;
+  revision: number;
 }
+
+type NotePermission = "viewer" | "editor";
 
 // Migrate old notes that lack new fields
 function migrateNote(note: Note): Note {
@@ -39,6 +42,7 @@ function fromRow(row: NoteRow): Note {
     updatedAt: Number(row.updated_at),
     lastViewedAt:
       row.last_viewed_at == null ? undefined : Number(row.last_viewed_at),
+    revision: Number(row.revision ?? 0),
   });
 }
 
@@ -54,6 +58,7 @@ function toRow(note: Note, userId: string, sortOrder: number) {
     updated_at: note.updatedAt,
     last_viewed_at: note.lastViewedAt ?? null,
     sort_order: sortOrder,
+    revision: note.revision ?? 0,
   };
 }
 
@@ -81,28 +86,76 @@ export function useNotes() {
   const { user } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [noteOrder, setNoteOrder] = useState<string[]>([]);
+  const [permissions, setPermissions] = useState<
+    Record<string, NotePermission>
+  >({});
+  const [owners, setOwners] = useState<Record<string, boolean>>({});
   const pendingCreates = useRef(new Map<string, Promise<void>>());
 
   const loadNotes = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
       setNotes([]);
       setNoteOrder([]);
+      setPermissions({});
+      setOwners({});
       return;
     }
 
-    const { data, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("sort_order", { ascending: false });
+    const [{ data, error }, { data: shareData, error: shareError }] =
+      await Promise.all([
+        supabase
+          .from("notes")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("sort_order", { ascending: false }),
+        supabase
+          .from("note_shares")
+          .select("note_id, permission")
+          .eq("user_id", user.id),
+      ]);
     if (error) {
       console.error("Unable to load notes", error);
       return;
     }
+    if (shareError) {
+      console.error("Unable to load note shares", shareError);
+      return;
+    }
 
-    const rows = (data ?? []) as NoteRow[];
+    const ownRows = (data ?? []) as NoteRow[];
+    const sharedRows = (shareData ?? []) as {
+      note_id: string;
+      permission: NotePermission;
+    }[];
+    const sharedIds = sharedRows.map((share) => share.note_id);
+    let sharedNoteRows: NoteRow[] = [];
+    if (sharedIds.length > 0) {
+      const { data: sharedData, error: sharedError } = await supabase
+        .from("notes")
+        .select("*")
+        .in("id", sharedIds);
+      if (sharedError) {
+        console.error("Unable to load shared notes", sharedError);
+        return;
+      }
+      sharedNoteRows = (sharedData ?? []) as NoteRow[];
+    }
+
+    const rows = [...ownRows, ...sharedNoteRows];
     setNotes(rows.map(fromRow));
     setNoteOrder(rows.map((row) => row.id));
+    setPermissions({
+      ...Object.fromEntries(ownRows.map((row) => [row.id, "editor"] as const)),
+      ...Object.fromEntries(
+        sharedRows.map((share) => [share.note_id, share.permission] as const),
+      ),
+    });
+    setOwners({
+      ...Object.fromEntries(ownRows.map((row) => [row.id, true] as const)),
+      ...Object.fromEntries(
+        sharedRows.map((share) => [share.note_id, false] as const),
+      ),
+    });
   }, [user]);
 
   useEffect(() => {
@@ -125,10 +178,13 @@ export function useNotes() {
         pinned: false,
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        revision: 0,
       };
 
       setNotes((prev) => [newNote, ...prev]);
       setNoteOrder((prev) => [newNote.id, ...prev]);
+      setPermissions((prev) => ({ ...prev, [newNote.id]: "editor" }));
+      setOwners((prev) => ({ ...prev, [newNote.id]: true }));
       if (user && isSupabaseConfigured) {
         const insertPromise = (async () => {
           const { error } = await supabase
@@ -148,33 +204,54 @@ export function useNotes() {
   );
 
   const updateNote = useCallback(
-    (id: string, updates: Partial<Note>) => {
+    async (id: string, updates: Partial<Note>) => {
+      if (permissions[id] !== "editor" && !pendingCreates.current.has(id)) {
+        return false;
+      }
       const updatedAt = Date.now();
+      const currentNote = notes.find((note) => note.id === id);
+      const expectedRevision = currentNote?.revision ?? 0;
       setNotes((prev) =>
         prev.map((note) =>
-          note.id === id ? { ...note, ...updates, updatedAt } : note,
+          note.id === id
+            ? { ...note, ...updates, updatedAt, revision: expectedRevision + 1 }
+            : note,
         ),
       );
       if (user && isSupabaseConfigured) {
-        void (async () => {
-          await pendingCreates.current.get(id);
-          const { error } = await supabase
-            .from("notes")
-            .update(toDatabaseUpdates(updates, updatedAt))
-            .eq("id", id)
-            .eq("user_id", user.id);
-          if (error) console.error("Unable to update note", error);
+        await pendingCreates.current.get(id);
+        const { data, error } = await supabase
+          .from("notes")
+          .update({
+            ...toDatabaseUpdates(updates, updatedAt),
+            revision: expectedRevision + 1,
+          })
+          .eq("id", id)
+          .eq("revision", expectedRevision)
+          .select("revision")
+          .maybeSingle();
+        if (error || !data) {
+          console.error("Note changed before this edit could be saved", error);
           notifyNotesChanged();
-        })();
+          return false;
+        }
+        notifyNotesChanged();
       }
+      return true;
     },
-    [user],
+    [notes, permissions, user],
   );
 
   const deleteNote = useCallback(
     (id: string) => {
+      if (permissions[id] !== "editor") return;
       setNotes((prev) => prev.filter((note) => note.id !== id));
       setNoteOrder((prev) => prev.filter((nid) => nid !== id));
+      setPermissions((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       if (user && isSupabaseConfigured) {
         void supabase
           .from("notes")
@@ -186,7 +263,7 @@ export function useNotes() {
           });
       }
     },
-    [user],
+    [permissions, user],
   );
 
   const togglePin = useCallback(
@@ -197,31 +274,29 @@ export function useNotes() {
     [notes, updateNote],
   );
 
-  const addTag = useCallback((id: string, tag: string) => {
-    const normalized = tag.trim().toLowerCase();
-    if (!normalized) return;
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id && !note.tags.includes(normalized)
-          ? { ...note, tags: [...note.tags, normalized], updatedAt: Date.now() }
-          : note,
-      ),
-    );
-  }, []);
+  const addTag = useCallback(
+    async (id: string, tag: string) => {
+      const normalized = tag.trim().toLowerCase();
+      if (!normalized) return;
+      const note = notes.find((item) => item.id === id);
+      if (note && !note.tags.includes(normalized)) {
+        await updateNote(id, { tags: [...note.tags, normalized] });
+      }
+    },
+    [notes, updateNote],
+  );
 
-  const removeTag = useCallback((id: string, tag: string) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id
-          ? {
-              ...note,
-              tags: note.tags.filter((t) => t !== tag),
-              updatedAt: Date.now(),
-            }
-          : note,
-      ),
-    );
-  }, []);
+  const removeTag = useCallback(
+    async (id: string, tag: string) => {
+      const note = notes.find((item) => item.id === id);
+      if (note) {
+        await updateNote(id, {
+          tags: note.tags.filter((item) => item !== tag),
+        });
+      }
+    },
+    [notes, updateNote],
+  );
 
   const markViewed = useCallback(
     (id: string) => {
@@ -270,6 +345,16 @@ export function useNotes() {
       );
     },
     [notes],
+  );
+
+  const getNotePermission = useCallback(
+    (id: string) => permissions[id] ?? null,
+    [permissions],
+  );
+
+  const isNoteOwner = useCallback(
+    (id: string) => owners[id] === true,
+    [owners],
   );
 
   // Reorder notes by setting the full ordered ID list
@@ -334,5 +419,7 @@ export function useNotes() {
     getBacklinks,
     reorderNotes,
     importNotes,
+    getNotePermission,
+    isNoteOwner,
   };
 }

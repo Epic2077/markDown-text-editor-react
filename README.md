@@ -36,6 +36,13 @@ Each code block in the preview gets a **Run** button. Output and errors appear i
 - **Manual save** with `Ctrl+S` / `Cmd+S`
 - Notes are sorted by last-modified time
 
+### Contextual note agent
+
+- The **Ask agent** widget answers questions using the note currently being viewed or edited
+- Edit mode includes suggested prompts and an **Insert into editor** action
+- The browser sends at most 24,000 note characters, approximately 6,000 tokens, plus the question and up to four short conversation turns
+- The agent returns up to 900 output tokens, so a typical request stays around 7,000 to 8,000 tokens before provider-specific overhead
+
 ### 🌐 Multilingual & RTL Support
 
 - Auto-detects RTL languages (Arabic, Hebrew, Persian, …) and applies correct text direction
@@ -87,7 +94,7 @@ Beyond standard CommonMark, the renderer supports:
 
 ### Prerequisites
 
-- Node.js ≥ 18
+- Node.js ≥ 20.19
 - npm (or your preferred package manager)
 
 ### Installation
@@ -121,6 +128,25 @@ npm run preview
 2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to Vercel Project Settings > Environment Variables for Preview and Production.
 3. In Supabase Authentication > URL Configuration, add both your Vercel URL and local URL to the allowed redirect URLs.
 4. In Vercel, use the `knowledge-base` directory as the project root if the repository contains the parent directory, with `npm run build` and `dist` as the output directory.
+
+### Agent setup
+
+Add these Vercel environment variables. `API_KEY` must be a server-only variable and must never use a `VITE_` prefix:
+
+```text
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_your-key
+API_KEY=your-liara-api-key
+MODEL_NAME=deepseek/deepseek-v4-flash
+```
+
+The Vercel function is [`api/agent.ts`](api/agent.ts). It calls the Liara OpenAI-compatible endpoint, validates the Supabase access token before calling the model, and keeps `API_KEY` on the server so only signed-in users can use it. Local Vite development does not run Vercel functions; use `vercel dev` locally or deploy a preview to test the complete agent flow.
+
+### Sharing notes
+
+Run [`supabase/migrations/20261002000000_add_note_sharing.sql`](supabase/migrations/20261002000000_add_note_sharing.sql) after the original notes migration. Note owners can share with an existing account email as either **Can view** or **Can edit**. Shared notes appear automatically for recipients.
+
+The editor subscribes to Supabase Realtime updates. Saves also include a revision check, so when two people edit the same note, the stale save is rejected instead of silently overwriting the newer database revision. The current editor keeps its unsaved text and shows a conflict notice so the user can reload and merge deliberately.
 
 ---
 

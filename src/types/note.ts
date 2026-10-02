@@ -7,4 +7,5 @@ export interface Note {
   createdAt: number;
   updatedAt: number;
   lastViewedAt?: number;
+  revision?: number;
 }

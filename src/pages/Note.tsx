@@ -30,9 +30,13 @@ import {
   Link2,
   X,
   Plus,
+  Share2,
 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { ExportMenu } from "../components/ExportMenu";
+import ShareNoteModal from "../components/ShareNoteModal";
+import NoteAgent from "../components/NoteAgent";
+import { isSupabaseConfigured, supabase } from "../lib/supabase";
 
 const formatDate = (timestamp: number) => {
   const date = new Date(timestamp);
@@ -47,19 +51,49 @@ const formatDate = (timestamp: number) => {
 };
 
 export default function Note() {
-  const { notes, togglePin, addTag, removeTag, markViewed, getBacklinks } =
-    useNotes();
+  const {
+    notes,
+    togglePin,
+    addTag,
+    removeTag,
+    markViewed,
+    getBacklinks,
+    getNotePermission,
+    isNoteOwner,
+  } = useNotes();
   const { id } = useParams();
   const navigate = useNavigate();
   const [tagInput, setTagInput] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const note = notes.find((note) => note.id === id);
+  const canEdit = id ? getNotePermission(id) === "editor" : false;
 
   // Mark as viewed
   useEffect(() => {
     if (id) markViewed(id);
   }, [id, markViewed]);
+
+  useEffect(() => {
+    if (!id || !isSupabaseConfigured) return;
+    const channel = supabase
+      .channel(`note-view-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notes",
+          filter: `id=eq.${id}`,
+        },
+        () => window.dispatchEvent(new Event("notes-updated")),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [id]);
 
   const backlinks = useMemo(
     () => (id ? getBacklinks(id) : []),
@@ -79,6 +113,17 @@ export default function Note() {
       return `**${title}**`;
     });
   }, [note, notes]);
+
+  const handleRunCode = useCallback(
+    async (
+      code: string,
+      language: string,
+      onStatus?: (status: string) => void,
+    ): Promise<CodeExecutionResult> => {
+      return executeCode(code, language, onStatus);
+    },
+    [],
+  );
 
   if (!note) {
     return (
@@ -171,17 +216,6 @@ export default function Note() {
     rehypeKatex,
   ];
 
-  const handleRunCode = useCallback(
-    async (
-      code: string,
-      language: string,
-      onStatus?: (status: string) => void,
-    ): Promise<CodeExecutionResult> => {
-      return executeCode(code, language, onStatus);
-    },
-    [],
-  );
-
   return (
     <div className="flex flex-col w-full h-screen bg-neutral-900 text-white">
       {/* Header */}
@@ -223,13 +257,24 @@ export default function Note() {
               />
             </button>
             <ExportMenu note={note} />
-            <Button
-              onClick={() => navigate(`/edit/${id}`)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 flex-shrink-0 text-sm font-medium shadow-lg shadow-blue-600/10"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              <span>Edit</span>
-            </Button>
+            {isNoteOwner(note.id) && (
+              <button
+                onClick={() => setShareOpen(true)}
+                className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+                title="Share note"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+            )}
+            {canEdit && (
+              <Button
+                onClick={() => navigate(`/edit/${id}`)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 flex-shrink-0 text-sm font-medium shadow-lg shadow-blue-600/10"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Edit</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -244,15 +289,17 @@ export default function Note() {
             >
               <Hash className="w-3 h-3" />
               {tag}
-              <button
-                onClick={() => id && removeTag(id, tag)}
-                className="ml-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
-              >
-                <X className="w-3 h-3" />
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => id && removeTag(id, tag)}
+                  className="ml-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </span>
           ))}
-          {showTagInput ? (
+          {canEdit && showTagInput ? (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -274,7 +321,7 @@ export default function Note() {
                 className="text-xs bg-transparent border border-neutral-700/50 rounded-full px-2.5 py-1 outline-none text-neutral-300 placeholder:text-neutral-600 w-24 focus:border-blue-500/50"
               />
             </form>
-          ) : (
+          ) : canEdit ? (
             <button
               onClick={() => setShowTagInput(true)}
               className="inline-flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-400 transition-colors px-1.5 py-1"
@@ -282,12 +329,12 @@ export default function Note() {
               <Plus className="w-3 h-3" />
               Add tag
             </button>
-          )}
+          ) : null}
         </div>
       )}
 
       {/* No tags — show add button inline */}
-      {note.tags.length === 0 && !showTagInput && (
+      {canEdit && note.tags.length === 0 && !showTagInput && (
         <div className="px-6 py-2 border-b border-neutral-800/40">
           <button
             onClick={() => setShowTagInput(true)}
@@ -346,6 +393,14 @@ export default function Note() {
           )}
         </div>
       </div>
+      {shareOpen && (
+        <ShareNoteModal noteId={note.id} onClose={() => setShareOpen(false)} />
+      )}
+      <NoteAgent
+        title={note.title || "Untitled note"}
+        content={note.content}
+        mode="view"
+      />
     </div>
   );
 }

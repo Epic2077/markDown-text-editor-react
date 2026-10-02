@@ -36,7 +36,9 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(() =>
+    typeof window === "undefined" ? true : window.innerWidth >= 768,
+  );
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);

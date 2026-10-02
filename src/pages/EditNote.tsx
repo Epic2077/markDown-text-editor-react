@@ -28,7 +28,10 @@ import { createMarkdownComponents } from "../components/markDown";
 import type { CodeExecutionResult } from "../types/chat";
 import { executeCode } from "../lib/codeExecutor";
 import { useNotes } from "../hooks/useNotes";
-import { Star, Hash, X, Plus } from "lucide-react";
+import { Star, Hash, X, Plus, Share2, AlertTriangle } from "lucide-react";
+import ShareNoteModal from "../components/ShareNoteModal";
+import NoteAgent from "../components/NoteAgent";
+import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import "@fontsource/vazirmatn/index.css";
 
 const AUTO_SAVE_DELAY = 2000; // 2 seconds
@@ -36,64 +39,111 @@ const AUTO_SAVE_DELAY = 2000; // 2 seconds
 export default function NoteEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { notes, createNote, updateNote, togglePin, addTag, removeTag } =
-    useNotes();
+  const {
+    notes,
+    createNote,
+    updateNote,
+    togglePin,
+    addTag,
+    removeTag,
+    getNotePermission,
+    isNoteOwner,
+  } = useNotes();
 
   const [title, setTitle] = useState<string>("");
   const [tab, setTab] = useState<"editor" | "preview">("editor");
   const [content, setContent] = useState<string>("");
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
-    "idle",
-  );
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "conflict"
+  >("idle");
   const [tagInput, setTagInput] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
 
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const noteIdRef = useRef<string | null>(id || null);
+  const loadedNoteIdRef = useRef<string | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(id || null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const permission = id ? getNotePermission(id) : "editor";
+  const readOnly = permission === "viewer";
 
-  const currentNote = notes.find((n) => n.id === (noteIdRef.current || id));
+  const currentNote = notes.find((n) => n.id === (activeNoteId || id));
 
   // Load existing note if editing
   useEffect(() => {
     if (id) {
       const note = notes.find((n) => n.id === id);
-      if (note) {
-        setTitle(note.title);
-        setContent(note.content);
-        noteIdRef.current = note.id;
-      } else {
+      if (note && loadedNoteIdRef.current !== id) {
+        const loadTask = window.setTimeout(() => {
+          setTitle(note.title);
+          setContent(note.content);
+          noteIdRef.current = note.id;
+          setActiveNoteId(note.id);
+          loadedNoteIdRef.current = id;
+        }, 0);
+        return () => window.clearTimeout(loadTask);
+      } else if (notes.length > 0 && !note) {
         navigate("/");
       }
     }
   }, [id, notes, navigate]);
 
+  useEffect(() => {
+    if (id && permission === "viewer") {
+      navigate(`/note/${id}`, { replace: true });
+    }
+  }, [id, navigate, permission]);
+
+  useEffect(() => {
+    if (!id || !isSupabaseConfigured) return;
+    const channel = supabase
+      .channel(`note-editor-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notes",
+          filter: `id=eq.${id}`,
+        },
+        () => window.dispatchEvent(new Event("notes-updated")),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [id]);
+
   const save = useCallback(
-    (currentTitle: string, currentContent: string) => {
+    async (currentTitle: string, currentContent: string) => {
       if (!currentTitle.trim() && !currentContent.trim()) return;
+      if (readOnly) return;
 
       setSaveStatus("saving");
 
+      let saved = true;
       if (noteIdRef.current === null) {
         const newId = createNote(currentTitle || "Untitled");
         noteIdRef.current = newId;
-        updateNote(newId, {
+        setActiveNoteId(newId);
+        saved = await updateNote(newId, {
           content: currentContent,
           title: currentTitle || "Untitled",
         });
         // Update URL to reflect the new note ID
         navigate(`/edit/${newId}`, { replace: true });
       } else {
-        updateNote(noteIdRef.current, {
+        saved = await updateNote(noteIdRef.current, {
           title: currentTitle || "Untitled",
           content: currentContent,
         });
       }
 
-      setSaveStatus("saved");
+      setSaveStatus(saved ? "saved" : "conflict");
       setTimeout(() => setSaveStatus("idle"), 2000);
     },
-    [createNote, updateNote, navigate],
+    [createNote, navigate, readOnly, updateNote],
   );
 
   // Auto-save on content or title change
@@ -101,7 +151,7 @@ export default function NoteEditor() {
     (currentTitle: string, currentContent: string) => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = setTimeout(() => {
-        save(currentTitle, currentContent);
+        void save(currentTitle, currentContent);
       }, AUTO_SAVE_DELAY);
     },
     [save],
@@ -122,6 +172,15 @@ export default function NoteEditor() {
       scheduleAutoSave(title, value);
     },
     [title, scheduleAutoSave],
+  );
+
+  const insertAgentText = useCallback(
+    (text: string) => {
+      const nextContent = content.trim() ? `${content}\n\n${text}` : text;
+      setContent(nextContent);
+      scheduleAutoSave(title, nextContent);
+    },
+    [content, scheduleAutoSave, title],
   );
 
   // Ctrl+S / Cmd+S manual save
@@ -221,6 +280,12 @@ export default function NoteEditor() {
     saved: (
       <span className="text-xs text-emerald-500/80 font-medium">Saved</span>
     ),
+    conflict: (
+      <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-medium">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        Conflict: reload before saving
+      </span>
+    ),
   }[saveStatus];
 
   return (
@@ -234,13 +299,12 @@ export default function NoteEditor() {
             placeholder="Untitled Note"
             value={title}
             onChange={handleTitleChange}
+            disabled={readOnly}
           />
           <div className="flex items-center gap-2 flex-shrink-0">
-            {noteIdRef.current && (
+            {activeNoteId && (
               <button
-                onClick={() =>
-                  noteIdRef.current && togglePin(noteIdRef.current)
-                }
+                onClick={() => activeNoteId && togglePin(activeNoteId)}
                 className={`p-2 rounded-lg transition-all duration-200 ${
                   currentNote?.pinned
                     ? "text-amber-400 hover:bg-amber-400/10"
@@ -253,10 +317,20 @@ export default function NoteEditor() {
                 />
               </button>
             )}
+            {activeNoteId && isNoteOwner(activeNoteId) && (
+              <button
+                onClick={() => setShareOpen(true)}
+                className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+                title="Share note"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+            )}
             <div className="h-5 w-px bg-neutral-800" />
             {saveStatusLabel}
             <button
-              onClick={() => save(title, content)}
+              onClick={() => void save(title, content)}
+              disabled={readOnly}
               className="px-3.5 py-1.5 text-xs font-medium rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/50 hover:border-neutral-600 transition-all duration-200 text-neutral-300 hover:text-white"
             >
               Save
@@ -266,7 +340,7 @@ export default function NoteEditor() {
       </div>
 
       {/* Tags bar */}
-      {noteIdRef.current && (
+      {activeNoteId && (
         <div className="px-5 py-2 border-b border-neutral-800/40 flex items-center gap-2 flex-wrap">
           {(currentNote?.tags || []).map((tag) => (
             <span
@@ -276,9 +350,8 @@ export default function NoteEditor() {
               <Hash className="w-3 h-3" />
               {tag}
               <button
-                onClick={() =>
-                  noteIdRef.current && removeTag(noteIdRef.current, tag)
-                }
+                onClick={() => activeNoteId && removeTag(activeNoteId, tag)}
+                disabled={readOnly}
                 className="ml-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
               >
                 <X className="w-3 h-3" />
@@ -310,6 +383,7 @@ export default function NoteEditor() {
           ) : (
             <button
               onClick={() => setShowTagInput(true)}
+              disabled={readOnly}
               className="inline-flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-400 transition-colors px-1.5 py-1"
             >
               <Plus className="w-3 h-3" />
@@ -328,6 +402,7 @@ export default function NoteEditor() {
           <CodeMirror
             ref={editorRef}
             value={content}
+            editable={!readOnly}
             height="100%"
             maxWidth="100%"
             theme={oneDark}
@@ -358,6 +433,18 @@ export default function NoteEditor() {
           </div>
         )}
       </div>
+      {shareOpen && activeNoteId && (
+        <ShareNoteModal
+          noteId={activeNoteId}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+      <NoteAgent
+        title={title || "Untitled note"}
+        content={content}
+        mode="edit"
+        onInsert={insertAgentText}
+      />
     </div>
   );
 }

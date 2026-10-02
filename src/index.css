@@ -70,6 +70,69 @@ body {
   margin: 0;
 }
 
+@keyframes agent-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(2deg);
+  }
+}
+
+@keyframes agent-blink {
+  0%,
+  44%,
+  48%,
+  100% {
+    transform: translateX(-50%) scaleY(1);
+  }
+  46% {
+    transform: translateX(-50%) scaleY(0.15);
+  }
+}
+
+@keyframes agent-typing {
+  0%,
+  20% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  80%,
+  100% {
+    opacity: 0.2;
+  }
+}
+
+.agent-float {
+  animation: agent-float 3.2s ease-in-out infinite;
+}
+
+.agent-antenna {
+  animation: agent-blink 2.8s ease-in-out infinite;
+}
+
+.agent-blink {
+  animation: agent-blink 4.5s ease-in-out infinite;
+}
+
+.agent-typing {
+  display: inline-block;
+  min-width: 1.25rem;
+  animation: agent-typing 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-float,
+  .agent-antenna,
+  .agent-blink,
+  .agent-typing {
+    animation: none;
+  }
+}
+
 h1,
 h2 {
   font-family: var(--heading);

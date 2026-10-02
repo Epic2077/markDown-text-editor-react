@@ -32,7 +32,6 @@ import {
   Plus,
   Share2,
 } from "lucide-react";
-import { Button } from "../ui/Button";
 import { ExportMenu } from "../components/ExportMenu";
 import ShareNoteModal from "../components/ShareNoteModal";
 import NoteAgent from "../components/NoteAgent";
@@ -269,14 +268,13 @@ export default function Note() {
               </button>
             )}
             {canEdit && (
-              <Button
-                type="button"
-                onClick={() => navigate(`/edit/${id}`)}
+              <Link
+                to={`/edit/${id}`}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 flex-shrink-0 text-sm font-medium shadow-lg shadow-blue-600/10"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 <span>Edit</span>
-              </Button>
+              </Link>
             )}
           </div>
         </div>

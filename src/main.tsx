@@ -10,6 +10,7 @@ import NoteEditor from "./pages/EditNote";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
+import AcceptShare from "./pages/AcceptShare";
 
 declare global {
   interface Window {
@@ -31,6 +32,12 @@ window.MonacoEnvironment = {
     ),
 };
 
+console.info(
+  "%cMarkdown Knowledge Base%c\nCreated by Ashkan Sadeghi\nGitHub: https://github.com/Epic2077\nWebsite: https://portfolio-ashkan.vercel.app/\nEmail: epic.2077.uni@gmail.com\nOpen source: https://github.com/Epic2077/markDown-text-editor-react",
+  "color:#67e8f9;font-weight:700;font-size:14px",
+  "color:inherit;font-weight:400;font-size:12px",
+);
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AuthProvider>
@@ -39,6 +46,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/login" element={<Auth mode="login" />} />
           <Route path="/signup" element={<Auth mode="signup" />} />
           <Route element={<ProtectedRoute />}>
+            <Route path="/share/:token" element={<AcceptShare />} />
             <Route path="/" element={<MainLayout />}>
               <Route index element={<Home />} />
               <Route path="new" element={<NewNote />} />

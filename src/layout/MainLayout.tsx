@@ -18,6 +18,12 @@ import {
   LayoutTemplate,
   GripVertical,
   LogOut,
+  Link2,
+  GitFork,
+  Globe,
+  Mail,
+  Code2,
+  Sparkles,
 } from "lucide-react";
 import {
   Tooltip,
@@ -42,6 +48,7 @@ export default function MainLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [creatorOpen, setCreatorOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const {
     notes,
@@ -51,7 +58,16 @@ export default function MainLayout() {
     recentlyViewed,
     reorderNotes,
     importNotes,
+    getNotePermission,
+    isNoteOwner,
+    changedNoteIds,
+    clearNoteChange,
   } = useNotes();
+
+  useEffect(() => {
+    const match = location.pathname.match(/^\/note\/([^/]+)/);
+    if (match) clearNoteChange(match[1]);
+  }, [clearNoteChange, location.pathname]);
 
   // Drag-to-reorder state
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -243,6 +259,8 @@ export default function MainLayout() {
   const renderNoteItem = (note: Note, sectionNotes: Note[]) => {
     const isDragging = draggedId === note.id;
     const isOver = dragOverId === note.id && draggedId !== note.id;
+    const isShared = getNotePermission(note.id) !== null && !isNoteOwner(note.id);
+    const hasChanges = changedNoteIds.includes(note.id);
 
     return (
       <div
@@ -289,6 +307,8 @@ export default function MainLayout() {
                 }`}
               >
                 {note.title || "Untitled"}
+                {isShared && <Link2 className="ml-1 inline h-3 w-3 text-cyan-400" aria-label="Shared note" />}
+                {hasChanges && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 align-middle" title="Changed since you last opened it" />}
               </h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <p className="text-[11px] text-neutral-600">
@@ -375,18 +395,50 @@ export default function MainLayout() {
         } bg-neutral-950/50 border-r border-neutral-800/60 flex flex-col transition-all duration-300 ease-in-out flex-shrink-0`}
       >
         {/* Sidebar header */}
-        <div className="h-14 border-b border-neutral-800/60 flex items-center justify-between px-3">
+        <div className="relative h-14 border-b border-neutral-800/60 flex items-center justify-between px-3">
           {open && (
-            <div
-              className="flex items-center gap-2.5 cursor-pointer group/brand"
-              onClick={() => navigate("/")}
-            >
-              <div className="p-1.5 rounded-lg bg-blue-600/10 group-hover/brand:bg-blue-600/15 transition-colors">
-                <BookOpen className="w-4 h-4 text-blue-400" />
+            <div className="flex items-center gap-1.5">
+              <div
+                className="flex items-center gap-2.5 cursor-pointer group/brand"
+                onClick={() => navigate("/")}
+              >
+                <div className="p-1.5 rounded-lg bg-blue-600/10 group-hover/brand:bg-blue-600/15 transition-colors">
+                  <BookOpen className="w-4 h-4 text-blue-400" />
+                </div>
+                <span className="font-bold text-white text-sm tracking-tight">
+                  Notes
+                </span>
               </div>
-              <span className="font-bold text-white text-sm tracking-tight">
-                Notes
-              </span>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setCreatorOpen((current) => !current);
+                }}
+                className="rounded-md p-1 text-neutral-600 transition-colors hover:bg-neutral-800 hover:text-cyan-300"
+                aria-label="About the creator"
+                title="About the creator"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+          {open && creatorOpen && (
+            <div className="absolute left-3 top-12 z-50 w-64 rounded-xl border border-neutral-700 bg-neutral-950 p-3 shadow-2xl shadow-black/40">
+              <div className="mb-3 flex items-center gap-2 border-b border-neutral-800 pb-3">
+                <div className="rounded-lg bg-cyan-400/10 p-2 text-cyan-300">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-neutral-500">Created by</p>
+                  <p className="text-sm font-semibold text-white">Ashkan Sadeghi</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <a href="https://github.com/Epic2077" target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"><GitFork className="h-3.5 w-3.5" /> GitHub</a>
+                <a href="https://portfolio-ashkan.vercel.app/" target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"><Globe className="h-3.5 w-3.5" /> Portfolio</a>
+                <a href="mailto:epic.2077.uni@gmail.com" className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"><Mail className="h-3.5 w-3.5" /> Email</a>
+                <a href="https://github.com/Epic2077/markDown-text-editor-react" target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"><Code2 className="h-3.5 w-3.5" /> Open-source code</a>
+              </div>
             </div>
           )}
           <TooltipProvider>

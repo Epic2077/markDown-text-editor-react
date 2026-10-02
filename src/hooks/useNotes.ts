@@ -90,6 +90,7 @@ export function useNotes() {
     Record<string, NotePermission>
   >({});
   const [owners, setOwners] = useState<Record<string, boolean>>({});
+  const [changedNoteIds, setChangedNoteIds] = useState<string[]>([]);
   const pendingCreates = useRef(new Map<string, Promise<void>>());
 
   const loadNotes = useCallback(async () => {
@@ -169,6 +170,29 @@ export function useNotes() {
       window.removeEventListener(NOTES_UPDATED_EVENT, syncNotes);
     };
   }, [loadNotes]);
+
+  useEffect(() => {
+    if (!user || !isSupabaseConfigured) return;
+    const channel = supabase
+      .channel(`notes-sidebar-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notes" },
+        (payload) => {
+          const changedId = (payload.new as { id?: string }).id;
+          if (changedId) {
+            setChangedNoteIds((current) =>
+              current.includes(changedId) ? current : [...current, changedId],
+            );
+            void loadNotes();
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadNotes, user]);
 
   const createNote = useCallback(
     (title: string) => {
@@ -359,6 +383,10 @@ export function useNotes() {
     [owners],
   );
 
+  const clearNoteChange = useCallback((id: string) => {
+    setChangedNoteIds((current) => current.filter((noteId) => noteId !== id));
+  }, []);
+
   // Reorder notes by setting the full ordered ID list
   const reorderNotes = useCallback(
     (orderedIds: string[]) => {
@@ -423,5 +451,7 @@ export function useNotes() {
     importNotes,
     getNotePermission,
     isNoteOwner,
+    changedNoteIds,
+    clearNoteChange,
   };
 }

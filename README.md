@@ -144,7 +144,7 @@ The Vercel function is [`api/agent.ts`](api/agent.ts). It calls the Liara OpenAI
 
 ### Sharing notes
 
-Run [`supabase/migrations/20261002000000_add_note_sharing.sql`](supabase/migrations/20261002000000_add_note_sharing.sql) after the original notes migration. Note owners can share with an existing account email as either **Can view** or **Can edit**. Shared notes appear automatically for recipients.
+Run [`supabase/migrations/20261002000000_add_note_sharing.sql`](supabase/migrations/20261002000000_add_note_sharing.sql) and [`supabase/migrations/20261003000000_add_note_share_links.sql`](supabase/migrations/20261003000000_add_note_share_links.sql) after the original notes migration. Note owners can generate revocable secret links as either **Can view** or **Can edit**. Recipients sign in, open the link, and are connected to the note automatically. The permission is stored against the hashed secret in the database and cannot be upgraded by editing the URL.
 
 The editor subscribes to Supabase Realtime updates. Saves also include a revision check, so when two people edit the same note, the stale save is rejected instead of silently overwriting the newer database revision. The current editor keeps its unsaved text and shows a conflict notice so the user can reload and merge deliberately.
 

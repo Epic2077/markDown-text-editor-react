@@ -119,7 +119,7 @@ export default function NoteAgent({
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 left-5 z-40 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-xl shadow-blue-950/40 transition hover:bg-blue-500"
+          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-xl shadow-blue-950/40 transition hover:bg-blue-500"
           aria-label="Open note agent"
         >
           <AgentAvatar small />
@@ -127,12 +127,14 @@ export default function NoteAgent({
         </button>
       )}
       {open && (
-        <section className="fixed bottom-5 left-5 z-50 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-950 shadow-2xl shadow-black/50">
+        <section className="fixed bottom-5 right-5 z-50 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-950 shadow-2xl shadow-black/50">
           <header className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
             <div className="flex items-center gap-2">
               <AgentAvatar />
               <div>
-                <h2 className="text-sm font-semibold text-white">Pico, your note bot</h2>
+                <h2 className="text-sm font-semibold text-white">
+                  Pico, your note bot
+                </h2>
                 <p className="text-[11px] text-neutral-500">
                   Using about {contextTokens.toLocaleString()} context tokens
                 </p>

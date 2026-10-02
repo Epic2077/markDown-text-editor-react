@@ -8,6 +8,7 @@ import CodeMirror, {
 } from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { history } from "@codemirror/commands";
 
 import remarkMath from "remark-math";
 import remarkDeflist from "remark-deflist";
@@ -445,7 +446,7 @@ export default function NoteEditor() {
             height="100%"
             maxWidth="100%"
             theme={oneDark}
-            extensions={[markdown(), transparentTheme, centerTextExtension]}
+            extensions={[markdown(), history(), transparentTheme, centerTextExtension]}
             onChange={handleContentChange}
             placeholder="Start writing..."
             className="h-full text-base"

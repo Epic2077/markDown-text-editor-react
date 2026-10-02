@@ -24,6 +24,7 @@ import {
   Mail,
   Code2,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import {
   Tooltip,
@@ -37,6 +38,7 @@ import { ExportMenu } from "../components/ExportMenu";
 import { TemplatePickerModal } from "../components/TemplatePickerModal";
 import type { Note } from "../types/note";
 import { useAuth } from "../hooks/useAuth";
+import { pdfFileToMarkdown } from "../lib/pdfToMarkdown";
 
 export default function MainLayout() {
   const navigate = useNavigate();
@@ -53,6 +55,7 @@ export default function MainLayout() {
   const [templateOpen, setTemplateOpen] = useState(false);
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [isImportingPdf, setIsImportingPdf] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -76,7 +79,39 @@ export default function MainLayout() {
     isNoteOwner,
     changedNoteIds,
     clearNoteChange,
+    createNote,
+    updateNote,
   } = useNotes();
+
+  const handleSidebarPdfImport = useCallback(async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setIsImportingPdf(true);
+      try {
+        const markdownText = await pdfFileToMarkdown(file);
+        // Create a new note with the PDF content
+        const newNoteId = createNote(
+          file.name.replace(/\.pdf$/i, "") || "Imported PDF",
+        );
+        await updateNote(newNoteId, {
+          content: markdownText,
+          tags: ["imported", "pdf"],
+        });
+        navigate(`/edit/${newNoteId}`);
+      } catch (error) {
+        console.error("Failed to import PDF:", error);
+        alert("Failed to extract text from PDF. Please make sure it's a text-based PDF.");
+      } finally {
+        setIsImportingPdf(false);
+      }
+    };
+    input.click();
+  }, [createNote, updateNote, navigate]);
 
   useEffect(() => {
     const match = location.pathname.match(/^\/note\/([^/]+)/);
@@ -574,6 +609,24 @@ export default function MainLayout() {
                   <TooltipContent>From template</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleSidebarPdfImport}
+                      disabled={isImportingPdf}
+                      className="px-2.5 py-2.5 rounded-lg border border-neutral-700/50 hover:border-neutral-600 bg-neutral-800/50 hover:bg-neutral-700/50 text-neutral-400 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isImportingPdf ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FileText className="w-4 h-4" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Import PDF</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         )}
@@ -617,6 +670,24 @@ export default function MainLayout() {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">From template</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSidebarPdfImport}
+                    disabled={isImportingPdf}
+                    className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-500 hover:text-neutral-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isImportingPdf ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FileText className="w-4 h-4" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Import PDF</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>

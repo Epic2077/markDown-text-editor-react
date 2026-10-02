@@ -79,7 +79,7 @@ export default function Note() {
   useEffect(() => {
     if (!id || !isSupabaseConfigured) return;
     const channel = supabase
-      .channel(`note-view-${id}`)
+      .channel(`note-view-${id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {

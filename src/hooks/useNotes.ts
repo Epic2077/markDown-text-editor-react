@@ -174,7 +174,7 @@ export function useNotes() {
   useEffect(() => {
     if (!user || !isSupabaseConfigured) return;
     const channel = supabase
-      .channel(`notes-sidebar-${user.id}`)
+      .channel(`notes-sidebar-${user.id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "notes" },

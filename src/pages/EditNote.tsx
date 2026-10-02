@@ -29,10 +29,10 @@ import type { CodeExecutionResult } from "../types/chat";
 import { executeCode } from "../lib/codeExecutor";
 import { useNotes } from "../hooks/useNotes";
 import { Star, Hash, X, Plus, Share2, AlertTriangle } from "lucide-react";
-import ShareNoteModal from "../components/ShareNoteModal";
 import NoteAgent from "../components/NoteAgent";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import "@fontsource/vazirmatn/index.css";
+import ShareNoteModal from "../components/ShareNoteModal";
 
 const AUTO_SAVE_DELAY = 2000; // 2 seconds
 
@@ -100,7 +100,7 @@ export default function NoteEditor() {
   useEffect(() => {
     if (!id || !isSupabaseConfigured) return;
     const channel = supabase
-      .channel(`note-editor-${id}`)
+      .channel(`note-editor-${id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {

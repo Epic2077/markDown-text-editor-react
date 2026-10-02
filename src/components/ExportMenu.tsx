@@ -63,7 +63,7 @@ export function ExportMenu({
 
       {open && (
         <div
-          className={`absolute right-0 w-52 rounded-lg border border-neutral-700/60 bg-neutral-900 py-1 shadow-xl shadow-black/30 z-50 ${
+          className={`absolute left-0 ml-50 w-52 rounded-lg border border-neutral-700/60 bg-neutral-900 py-1 shadow-xl shadow-black/30 z-50 ${
             placement === "up" ? "bottom-full mb-1" : "top-full mt-1"
           }`}
         >

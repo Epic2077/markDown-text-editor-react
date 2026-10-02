@@ -23,11 +23,14 @@ import {
   CheckSquare,
   Table,
   Palette,
+  FileText,
+  Loader2,
 } from "lucide-react";
 
 interface ToolbarButtonProps {
   onClick: () => void;
   isActive?: boolean;
+  disabled?: boolean;
   children: React.ReactNode;
   title?: string;
 }
@@ -35,15 +38,19 @@ interface ToolbarButtonProps {
 export const ToolbarButton = ({
   onClick,
   isActive = false,
+  disabled = false,
   children,
   title,
 }: ToolbarButtonProps) => (
   <button
     type="button"
     onClick={onClick}
+    disabled={disabled}
     title={title}
     className={`p-1.5 rounded-md transition-all duration-150 ${
-      isActive
+      disabled
+        ? "opacity-50 cursor-not-allowed"
+        : isActive
         ? "bg-neutral-700 text-white"
         : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700/60"
     }`}
@@ -56,6 +63,8 @@ interface ToolBarProps {
   tab: "editor" | "preview";
   setTab: Dispatch<SetStateAction<"editor" | "preview">>;
   editorRef: React.RefObject<ReactCodeMirrorRef | null>;
+  onImportPdf?: () => void;
+  isImportingPdf?: boolean;
 }
 
 // Pre-defined colors for the dropdown
@@ -68,7 +77,7 @@ const TEXT_COLORS = [
   { name: "Purple", value: "#a855f7" },
 ];
 
-export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
+export function Toolbar({ tab, setTab, editorRef, onImportPdf, isImportingPdf }: ToolBarProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
 
   const insertMarkdown = useCallback(
@@ -309,6 +318,19 @@ export function Toolbar({ tab, setTab, editorRef }: ToolBarProps) {
           >
             <Image size={16} />
           </ToolbarButton>
+          {onImportPdf && (
+            <ToolbarButton
+              onClick={onImportPdf}
+              disabled={isImportingPdf}
+              title="Import PDF"
+            >
+              {isImportingPdf ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <FileText size={16} />
+              )}
+            </ToolbarButton>
+          )}
           <ToolbarButton
             onClick={() =>
               insertTemplate(

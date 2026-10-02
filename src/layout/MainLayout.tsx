@@ -45,11 +45,25 @@ export default function MainLayout() {
   const [open, setOpen] = useState(() =>
     typeof window === "undefined" ? true : window.innerWidth >= 768,
   );
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window === "undefined" ? false : window.innerWidth < 768,
+  );
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setOpen(false);
+      else setOpen(true);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const {
     notes,
     deleteNote,
@@ -263,6 +277,10 @@ export default function MainLayout() {
       getNotePermission(note.id) !== null && !isNoteOwner(note.id);
     const hasChanges = changedNoteIds.includes(note.id);
 
+    const handleNoteClick = () => {
+      if (isMobile) setOpen(false);
+    };
+
     return (
       <div
         key={note.id}
@@ -289,7 +307,7 @@ export default function MainLayout() {
             : "hover:bg-neutral-800/50 border border-transparent"
         }`}
       >
-        <Link to={`/note/${note.id}`} className="block p-2.5 pr-9">
+        <Link to={`/note/${note.id}`} className="block p-2.5 pr-9" onClick={handleNoteClick}>
           <div className="flex items-start gap-2">
             <GripVertical className="w-3.5 h-3.5 mt-1 flex-shrink-0 text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
             {note.pinned ? (
@@ -400,10 +418,29 @@ export default function MainLayout() {
         onClose={() => setTemplateOpen(false)}
       />
 
+      {/* Mobile sidebar overlay */}
+      {isMobile && open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <aside
         className={`${
-          open ? "w-72" : "w-[52px]"
-        } bg-neutral-950/50 border-r border-neutral-800/60 flex flex-col transition-all duration-300 ease-in-out flex-shrink-0`}
+          isMobile
+            ? "fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out "
+            : "w-72 "
+        }${
+          isMobile
+            ? open
+              ? "translate-x-0"
+              : "-translate-x-full"
+            : open
+            ? ""
+            : "w-[52px]"
+        } bg-neutral-950/50 border-r border-neutral-800/60 flex flex-col flex-shrink-0`}
       >
         {/* Sidebar header */}
         <div className="relative h-14 border-b border-neutral-800/60 flex items-center justify-between px-3">
@@ -487,15 +524,17 @@ export default function MainLayout() {
                   onClick={() => setOpen((prev) => !prev)}
                   className="p-1.5 rounded-lg hover:bg-neutral-800 transition-colors text-neutral-500 hover:text-neutral-300"
                 >
-                  {open ? (
+                  {isMobile ? (
+                    <X className="w-4 h-4" />
+                  ) : open ? (
                     <PanelLeftClose className="w-4 h-4" />
                   ) : (
                     <PanelLeftOpen className="w-4 h-4" />
                   )}
                 </button>
               </TooltipTrigger>
-              <TooltipContent side={open ? "bottom" : "right"}>
-                {open ? "Collapse" : "Expand"} sidebar
+              <TooltipContent side={isMobile ? "bottom" : open ? "bottom" : "right"}>
+                {isMobile ? "Close sidebar" : open ? "Collapse" : "Expand"} sidebar
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -709,8 +748,8 @@ export default function MainLayout() {
           )}
         </nav>
 
-        {/* Bottom actions */}
-        {open && (
+        {/* Bottom actions - Desktop */}
+        {open && !isMobile && (
           <div className="border-t border-neutral-800/60 p-2 flex items-center justify-between">
             <ExportMenu notes={notes} onImport={handleImport} placement="up" />
             <div className="flex items-center gap-1">
@@ -738,6 +777,42 @@ export default function MainLayout() {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
+                    Sign out {user?.email ? `(${user.email})` : ""}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom actions - Mobile */}
+        {open && isMobile && (
+          <div className="border-t border-neutral-800/60 p-2 flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setShortcutsOpen(true)}
+                      className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-500 hover:text-neutral-300 transition-all duration-150"
+                    >
+                      <Keyboard className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Keyboard shortcuts (?)</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => void signOut()}
+                      className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-500 hover:text-neutral-300 transition-all duration-150"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
                     Sign out {user?.email ? `(${user.email})` : ""}
                   </TooltipContent>
                 </Tooltip>

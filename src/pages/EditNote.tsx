@@ -33,6 +33,7 @@ import NoteAgent from "../components/NoteAgent";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import "@fontsource/vazirmatn/index.css";
 import ShareNoteModal from "../components/ShareNoteModal";
+import { pdfFileToMarkdown } from "../lib/pdfToMarkdown";
 
 const AUTO_SAVE_DELAY = 2000; // 2 seconds
 
@@ -66,6 +67,7 @@ export default function NoteEditor() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(id || null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [isImportingPdf, setIsImportingPdf] = useState(false);
   const permission = id
     ? (getNotePermission(id) ?? (isNoteOwner(id) ? "editor" : null))
     : "editor";
@@ -185,6 +187,32 @@ export default function NoteEditor() {
     },
     [content, scheduleAutoSave, title],
   );
+
+  const handleImportPdf = useCallback(async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setIsImportingPdf(true);
+      try {
+        const markdownText = await pdfFileToMarkdown(file);
+        const nextContent = content.trim()
+          ? `${content}\n\n---\n\n${markdownText}`
+          : markdownText;
+        setContent(nextContent);
+        scheduleAutoSave(title, nextContent);
+      } catch (error) {
+        console.error("Failed to import PDF:", error);
+        alert("Failed to extract text from PDF. Please make sure it's a text-based PDF.");
+      } finally {
+        setIsImportingPdf(false);
+      }
+    };
+    input.click();
+  }, [content, title, scheduleAutoSave]);
 
   // Ctrl+S / Cmd+S manual save
   useEffect(() => {
@@ -399,7 +427,13 @@ export default function NoteEditor() {
       )}
 
       {/* Tabs + Toolbar row */}
-      <Toolbar tab={tab} setTab={setTab} editorRef={editorRef} />
+      <Toolbar
+        tab={tab}
+        setTab={setTab}
+        editorRef={editorRef}
+        onImportPdf={handleImportPdf}
+        isImportingPdf={isImportingPdf}
+      />
 
       {/* Content area */}
       <div className="flex-1 overflow-hidden">

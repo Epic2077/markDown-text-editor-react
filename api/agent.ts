@@ -57,11 +57,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const model = process.env.MODEL_NAME;
   const apiKey = process.env.API_KEY;
   if (!apiKey || !model) {
-    return res
-      .status(503)
-      .json({
-        error: "The note agent API_KEY or MODEL_NAME is not configured.",
-      });
+    return res.status(503).json({
+      error: "The note agent API_KEY or MODEL_NAME is not configured.",
+    });
   }
 
   const history = (req.body?.messages || [])
@@ -78,35 +76,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .filter(Boolean)
     .join("\n\n");
 
-  const completionResponse = await fetch(`${AI_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.3,
-      max_tokens: 900,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a concise note assistant. Answer using the supplied note as the source of truth. Say clearly when the note does not contain enough information. In edit mode, suggest concrete wording or structure when useful. Do not invent facts or claim to have changed the note.",
-        },
-        { role: "user", content: prompt },
-      ],
-    }),
-  });
-
-  if (!completionResponse.ok) {
-    return res
-      .status(502)
-      .json({ error: "The note agent could not answer right now." });
+  let completionResponse: Response;
+  try {
+    completionResponse = await fetch(`${AI_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.3,
+        max_tokens: 900,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a concise note assistant. Answer using the supplied note as the source of truth. Say clearly when the note does not contain enough information. In edit mode, suggest concrete wording or structure when useful. Do not invent facts or claim to have changed the note.",
+          },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+  } catch (upstreamError) {
+    console.error("Note agent upstream request failed", upstreamError);
+    return res.status(502).json({
+      error: "The note agent could not reach the configured AI endpoint.",
+    });
   }
-  const completion = (await completionResponse.json()) as {
+
+  const responseText = await completionResponse.text();
+  if (!completionResponse.ok) {
+    let detail = responseText.slice(0, 300);
+    try {
+      const parsed = JSON.parse(responseText) as {
+        error?: { message?: string } | string;
+      };
+      detail =
+        typeof parsed.error === "string"
+          ? parsed.error
+          : parsed.error?.message || detail;
+    } catch {
+      // Keep the short raw provider response when it is not JSON.
+    }
+    console.error("Note agent upstream rejected request", {
+      status: completionResponse.status,
+      model,
+      detail,
+    });
+    return res.status(502).json({
+      error: `The AI endpoint rejected the request (${completionResponse.status}).`,
+      detail,
+    });
+  }
+
+  let completion: {
     choices?: { message?: { content?: string } }[];
   };
+  try {
+    completion = JSON.parse(responseText) as typeof completion;
+  } catch {
+    return res.status(502).json({
+      error: "The AI endpoint returned an invalid response.",
+    });
+  }
   const answer = completion.choices?.[0]?.message?.content?.trim();
   if (!answer)
     return res

@@ -90,9 +90,14 @@ export default function NoteAgent({
       const result = (await response.json()) as {
         answer?: string;
         error?: string;
+        detail?: string;
       };
       if (!response.ok || !result.answer)
-        throw new Error(result.error || "The agent could not answer.");
+        throw new Error(
+          [result.error || "The agent could not answer.", result.detail]
+            .filter(Boolean)
+            .join(" "),
+        );
       setMessages([
         ...nextMessages,
         { role: "assistant", content: result.answer },

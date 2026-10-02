@@ -2,7 +2,7 @@
 
 > ⚠️ **Beta** — This project is actively being developed. Features may change and rough edges exist. Feedback and contributions are very welcome!
 
-A fast, privacy-first markdown note-taking app that lives entirely in your browser. Write notes in Markdown, preview them instantly, and even **run code** — all without sending a single byte to any server.
+A markdown knowledge base with Supabase Auth and Postgres persistence. Write notes in Markdown, preview them instantly, and run code locally in browser workers.
 
 ---
 
@@ -30,7 +30,8 @@ Each code block in the preview gets a **Run** button. Output and errors appear i
 ### 🗒️ Note Management
 
 - Create, edit, and delete notes
-- Notes are stored in **localStorage** — your data never leaves your device
+- Notes are stored in Supabase and isolated per signed-in user with Row Level Security
+- Email/password login and signup are required to access notes
 - **Auto-save** kicks in 2 seconds after you stop typing
 - **Manual save** with `Ctrl+S` / `Cmd+S`
 - Notes are sorted by last-modified time
@@ -78,7 +79,7 @@ Beyond standard CommonMark, the renderer supports:
 | Code execution        | Web Workers + Pyodide (WASM)           |
 | Icons                 | Lucide React                           |
 | Routing               | React Router v7                        |
-| Persistence           | Browser localStorage                   |
+| Persistence           | Supabase Postgres + Row Level Security |
 
 ---
 
@@ -94,7 +95,7 @@ Beyond standard CommonMark, the renderer supports:
 ```bash
 # Clone the repository
 git clone https://github.com/Epic2077/markDown-text-editor-react.git
-cd markDown-text-editor-react
+cd markDown-text-editor-react/knowledge-base
 
 # Install dependencies
 npm install
@@ -102,6 +103,8 @@ npm install
 # Start the development server
 npm run dev
 ```
+
+Create `.env.local` from `.env.example` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` before using login or signup. For the database migration and Vercel deployment steps, see the setup guide below.
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
@@ -111,6 +114,13 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 npm run build
 npm run preview
 ```
+
+### Vercel and Supabase setup
+
+1. Run [`supabase/migrations/20261001000000_create_notes.sql`](supabase/migrations/20261001000000_create_notes.sql) in the Supabase SQL Editor.
+2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to Vercel Project Settings > Environment Variables for Preview and Production.
+3. In Supabase Authentication > URL Configuration, add both your Vercel URL and local URL to the allowed redirect URLs.
+4. In Vercel, use the `knowledge-base` directory as the project root if the repository contains the parent directory, with `npm run build` and `dist` as the output directory.
 
 ---
 

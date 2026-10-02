@@ -14,7 +14,7 @@ import rehypeRaw from "rehype-raw";
 
 import "katex/dist/katex.min.css";
 import remarkGfm from "remark-gfm";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { executeCode } from "../lib/codeExecutor";
 import { createMarkdownComponents } from "../components/markDown";
@@ -65,6 +65,7 @@ export default function Note() {
   const [tagInput, setTagInput] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const markedNoteRef = useRef<string | null>(null);
 
   const note = notes.find((note) => note.id === id);
   const canEdit = id
@@ -73,7 +74,10 @@ export default function Note() {
 
   // Mark as viewed
   useEffect(() => {
-    if (id) markViewed(id);
+    if (id && markedNoteRef.current !== id) {
+      markedNoteRef.current = id;
+      markViewed(id);
+    }
   }, [id, markViewed]);
 
   useEffect(() => {

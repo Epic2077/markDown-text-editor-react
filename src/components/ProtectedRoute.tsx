@@ -9,7 +9,13 @@ export default function ProtectedRoute() {
     return <div className="min-h-screen bg-neutral-950" />;
   }
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
   }
   return <Outlet />;
 }

@@ -259,7 +259,8 @@ export default function MainLayout() {
   const renderNoteItem = (note: Note, sectionNotes: Note[]) => {
     const isDragging = draggedId === note.id;
     const isOver = dragOverId === note.id && draggedId !== note.id;
-    const isShared = getNotePermission(note.id) !== null && !isNoteOwner(note.id);
+    const isShared =
+      getNotePermission(note.id) !== null && !isNoteOwner(note.id);
     const hasChanges = changedNoteIds.includes(note.id);
 
     return (
@@ -307,8 +308,18 @@ export default function MainLayout() {
                 }`}
               >
                 {note.title || "Untitled"}
-                {isShared && <Link2 className="ml-1 inline h-3 w-3 text-cyan-400" aria-label="Shared note" />}
-                {hasChanges && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 align-middle" title="Changed since you last opened it" />}
+                {isShared && (
+                  <Link2
+                    className="ml-1 inline h-3 w-3 text-cyan-400"
+                    aria-label="Shared note"
+                  />
+                )}
+                {hasChanges && (
+                  <span
+                    className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 align-middle"
+                    title="Changed since you last opened it"
+                  />
+                )}
               </h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <p className="text-[11px] text-neutral-600">
@@ -430,14 +441,42 @@ export default function MainLayout() {
                 </div>
                 <div>
                   <p className="text-xs text-neutral-500">Created by</p>
-                  <p className="text-sm font-semibold text-white">Ashkan Sadeghi</p>
+                  <p className="text-sm font-semibold text-white">
+                    Ashkan Sadeghi
+                  </p>
                 </div>
               </div>
               <div className="space-y-1">
-                <a href="https://github.com/Epic2077" target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"><GitFork className="h-3.5 w-3.5" /> GitHub</a>
-                <a href="https://portfolio-ashkan.vercel.app/" target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"><Globe className="h-3.5 w-3.5" /> Portfolio</a>
-                <a href="mailto:epic.2077.uni@gmail.com" className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"><Mail className="h-3.5 w-3.5" /> Email</a>
-                <a href="https://github.com/Epic2077/markDown-text-editor-react" target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"><Code2 className="h-3.5 w-3.5" /> Open-source code</a>
+                <a
+                  href="https://github.com/Epic2077"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"
+                >
+                  <GitFork className="h-3.5 w-3.5" /> GitHub
+                </a>
+                <a
+                  href="https://portfolio-ashkan.vercel.app/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"
+                >
+                  <Globe className="h-3.5 w-3.5" /> Portfolio
+                </a>
+                <a
+                  href="mailto:epic.2077.uni@gmail.com"
+                  className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"
+                >
+                  <Mail className="h-3.5 w-3.5" /> Email
+                </a>
+                <a
+                  href="https://github.com/Epic2077/markDown-text-editor-react"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white"
+                >
+                  <Code2 className="h-3.5 w-3.5" /> Open-source code
+                </a>
               </div>
             </div>
           )}

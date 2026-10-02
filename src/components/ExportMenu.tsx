@@ -13,9 +13,15 @@ interface ExportMenuProps {
   note?: Note;
   notes?: Note[];
   onImport?: (notes: Note[]) => void;
+  placement?: "down" | "up";
 }
 
-export function ExportMenu({ note, notes, onImport }: ExportMenuProps) {
+export function ExportMenu({
+  note,
+  notes,
+  onImport,
+  placement = "down",
+}: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +52,7 @@ export function ExportMenu({ note, notes, onImport }: ExportMenuProps) {
   };
 
   return (
-    <div ref={menuRef} className="relative">
+    <div ref={menuRef} className="relative z-50">
       <button
         onClick={() => setOpen(!open)}
         className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-all duration-150"
@@ -56,7 +62,11 @@ export function ExportMenu({ note, notes, onImport }: ExportMenuProps) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-52 bg-neutral-900 border border-neutral-700/60 rounded-lg shadow-xl shadow-black/30 py-1 z-50">
+        <div
+          className={`absolute right-0 w-52 rounded-lg border border-neutral-700/60 bg-neutral-900 py-1 shadow-xl shadow-black/30 z-50 ${
+            placement === "up" ? "bottom-full mb-1" : "top-full mt-1"
+          }`}
+        >
           {note && (
             <>
               <button

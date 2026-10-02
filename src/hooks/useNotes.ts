@@ -118,12 +118,14 @@ export function useNotes() {
       return;
     }
     if (shareError) {
-      console.error("Unable to load note shares", shareError);
-      return;
+      console.warn(
+        "Note sharing is unavailable until its Supabase migration is applied",
+        shareError,
+      );
     }
 
     const ownRows = (data ?? []) as NoteRow[];
-    const sharedRows = (shareData ?? []) as {
+    const sharedRows = (shareError ? [] : (shareData ?? [])) as {
       note_id: string;
       permission: NotePermission;
     }[];

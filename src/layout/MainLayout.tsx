@@ -621,7 +621,7 @@ export default function MainLayout() {
         {/* Bottom actions */}
         {open && (
           <div className="border-t border-neutral-800/60 p-2 flex items-center justify-between">
-            <ExportMenu notes={notes} onImport={handleImport} />
+            <ExportMenu notes={notes} onImport={handleImport} placement="up" />
             <div className="flex items-center gap-1">
               <TooltipProvider>
                 <Tooltip>

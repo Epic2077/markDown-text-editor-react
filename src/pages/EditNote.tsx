@@ -65,7 +65,9 @@ export default function NoteEditor() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(id || null);
   const [shareOpen, setShareOpen] = useState(false);
-  const permission = id ? getNotePermission(id) : "editor";
+  const permission = id
+    ? (getNotePermission(id) ?? (isNoteOwner(id) ? "editor" : null))
+    : "editor";
   const readOnly = permission === "viewer";
 
   const currentNote = notes.find((n) => n.id === (activeNoteId || id));

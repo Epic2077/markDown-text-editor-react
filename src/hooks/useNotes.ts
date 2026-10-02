@@ -91,14 +91,17 @@ export function useNotes() {
   >({});
   const [owners, setOwners] = useState<Record<string, boolean>>({});
   const [changedNoteIds, setChangedNoteIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const pendingCreates = useRef(new Map<string, Promise<void>>());
 
   const loadNotes = useCallback(async () => {
+    setLoading(true);
     if (!user || !isSupabaseConfigured) {
       setNotes([]);
       setNoteOrder([]);
       setPermissions({});
       setOwners({});
+      setLoading(false);
       return;
     }
 
@@ -116,6 +119,7 @@ export function useNotes() {
       ]);
     if (error) {
       console.error("Unable to load notes", error);
+      setLoading(false);
       return;
     }
     if (shareError) {
@@ -139,6 +143,7 @@ export function useNotes() {
         .in("id", sharedIds);
       if (sharedError) {
         console.error("Unable to load shared notes", sharedError);
+        setLoading(false);
         return;
       }
       sharedNoteRows = (sharedData ?? []) as NoteRow[];
@@ -159,6 +164,7 @@ export function useNotes() {
         sharedRows.map((share) => [share.note_id, false] as const),
       ),
     });
+    setLoading(false);
   }, [user]);
 
   useEffect(() => {
@@ -453,5 +459,6 @@ export function useNotes() {
     isNoteOwner,
     changedNoteIds,
     clearNoteChange,
+    loading,
   };
 }

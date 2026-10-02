@@ -48,6 +48,7 @@ export default function NoteEditor() {
     removeTag,
     getNotePermission,
     isNoteOwner,
+    loading,
   } = useNotes();
 
   const [title, setTitle] = useState<string>("");
@@ -85,11 +86,11 @@ export default function NoteEditor() {
           loadedNoteIdRef.current = id;
         }, 0);
         return () => window.clearTimeout(loadTask);
-      } else if (notes.length > 0 && !note) {
+      } else if (!loading && notes.length > 0 && !note) {
         navigate("/");
       }
     }
-  }, [id, notes, navigate]);
+  }, [id, loading, notes, navigate]);
 
   useEffect(() => {
     if (id && permission === "viewer") {
@@ -190,12 +191,14 @@ export default function NoteEditor() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
+        e.stopPropagation();
         if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-        save(title, content);
+        void save(title, content);
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [save, title, content]);
 
   // Cleanup timer on unmount

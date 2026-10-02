@@ -33,9 +33,9 @@ import {
   Share2,
 } from "lucide-react";
 import { ExportMenu } from "../components/ExportMenu";
-import ShareNoteModal from "../components/ShareNoteModal";
 import NoteAgent from "../components/NoteAgent";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import ShareNoteModal from "../components/ShareNoteModal";
 
 const formatDate = (timestamp: number) => {
   const date = new Date(timestamp);

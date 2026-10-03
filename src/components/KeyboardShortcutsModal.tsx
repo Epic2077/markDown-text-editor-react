@@ -12,7 +12,7 @@ const shortcuts = [
     items: [
       { keys: ["Ctrl", "K"], description: "Open search palette" },
       { keys: ["Ctrl", "N"], description: "Create new note" },
-      { keys: ["?"], description: "Show keyboard shortcuts" },
+      { keys: ["Ctrl", "Shift", "?"], description: "Show keyboard shortcuts" },
     ],
   },
   {

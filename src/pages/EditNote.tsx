@@ -29,7 +29,7 @@ import { createMarkdownComponents } from "../components/markDown";
 import type { CodeExecutionResult } from "../types/chat";
 import { executeCode } from "../lib/codeExecutor";
 import { useNotes } from "../hooks/useNotes";
-import { Star, Hash, X, Plus, Share2, AlertTriangle } from "lucide-react";
+import { Star, Hash, X, Plus, Share2, AlertTriangle, Save } from "lucide-react";
 import NoteAgent from "../components/NoteAgent";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import "@fontsource/vazirmatn/index.css";
@@ -66,6 +66,8 @@ export default function NoteEditor() {
   const noteIdRef = useRef<string | null>(id || null);
   const loadedNoteIdRef = useRef<string | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSyncedTitleRef = useRef<string>("");
+  const lastSyncedContentRef = useRef<string>("");
   const [activeNoteId, setActiveNoteId] = useState<string | null>(id || null);
   const [shareOpen, setShareOpen] = useState(false);
   const [isImportingPdf, setIsImportingPdf] = useState(false);
@@ -236,6 +238,19 @@ export default function NoteEditor() {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
   }, []);
+
+  // Sync local state with server changes (real-time updates from other devices)
+  useEffect(() => {
+    if (!currentNote) return;
+    if (currentNote.title !== lastSyncedTitleRef.current) {
+      setTitle(currentNote.title);
+      lastSyncedTitleRef.current = currentNote.title;
+    }
+    if (currentNote.content !== lastSyncedContentRef.current) {
+      setContent(currentNote.content);
+      lastSyncedContentRef.current = currentNote.content;
+    }
+  }, [currentNote]);
 
   const sanitizeSchema = {
     ...defaultSchema,
@@ -473,6 +488,15 @@ export default function NoteEditor() {
           </div>
         )}
       </div>
+      <button
+        onClick={() => void save(title, content)}
+        disabled={readOnly || saveStatus === "saving"}
+        className="fixed bottom-6 right-6 z-40 md:hidden p-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-xl transition-all duration-200 active:scale-95"
+        aria-label="Save note"
+        title="Save (Ctrl+S)"
+      >
+        <Save className="w-6 h-6" />
+      </button>
       {shareOpen && activeNoteId && (
         <ShareNoteModal
           noteId={activeNoteId}
